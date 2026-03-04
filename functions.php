@@ -99,6 +99,7 @@ function procesar_login_google_nativo() {
     $email = strtolower($payload['email']);
     $first_name = isset($payload['given_name']) ? $payload['given_name'] : '';
     $last_name = isset($payload['family_name']) ? $payload['family_name'] : '';
+    $picture = isset($payload['picture']) ? $payload['picture'] : ''; // 🔥 LÍNEA NUEVA: Atrapamos la foto
     $dominio = substr(strrchr($email, "@"), 1);
 
     // 3. Lógica de Negocio: Verificar si existe el usuario
@@ -137,7 +138,7 @@ function procesar_login_google_nativo() {
     
     // Disparamos la acción por si algún otro plugin necesita saber que alguien entró
     do_action('wp_login', $user->user_login, $user);
-
+update_user_meta($user->ID, 'avatar_google', $picture);
     wp_send_json(['status' => 'success', 'message' => 'Bienvenido']);
 }
 

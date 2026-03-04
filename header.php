@@ -60,7 +60,11 @@
             $login_url = home_url( '/login/' );
             
             // Avatar (Intenta obtener avatar o usa uno por defecto)
-            $avatar_url = get_avatar_url( $current_user->ID );
+            // 1. Buscamos la foto de Google que guardamos en functions.php
+$google_avatar = get_user_meta( $current_user->ID, 'avatar_google', true );
+
+// 2. Si tiene foto de Google, la usamos. Si no, usamos la de por defecto.
+$avatar_url = !empty( $google_avatar ) ? $google_avatar : get_avatar_url( $current_user->ID );
             ?>
             
             <div class="user-profile-wrapper">
