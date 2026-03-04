@@ -200,25 +200,26 @@ function inyectar_identidad_app() {
     $email = $current_user->user_email;
     $rol_id = 0; // 0 = Sin acceso por defecto
     
-    // Recuperamos la foto de Google que guardamos en el login
-    $avatar_url = get_user_meta($current_user->ID, 'avatar_google', true);
-    
-    // 2. Conexión a la Base de Datos Externa de la App
-    // WordPress usará las credenciales seguras de wp-config.php
+   // 2. Conexión a la Base de Datos Externa de la App
     $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
+    $avatar_url = ''; // Variable vacía para empezar
     
     // Verificamos si hubo un error al conectar
     if ( !empty( $app_db->error ) ) {
         error_log("Error conectando a BD App: " . $app_db->error->get_error_message());
     } else {
-        $query = $app_db->prepare(
-            "SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s ORDER BY rol_id ASC LIMIT 1", 
-            $email
-        );
-        $rol_obtenido = $app_db->get_var($query);
-        
+        // A) Buscar el ROL
+        $query_rol = $app_db->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s ORDER BY rol_id ASC LIMIT 1", $email);
+        $rol_obtenido = $app_db->get_var($query_rol);
         if ($rol_obtenido !== null) {
             $rol_id = (int)$rol_obtenido;
+        }
+
+        // B) Buscar la FOTO
+        $query_foto = $app_db->prepare("SELECT foto_url FROM app_usuarios WHERE email = %s LIMIT 1", $email);
+        $foto_obtenida = $app_db->get_var($query_foto);
+        if (!empty($foto_obtenida)) {
+            $avatar_url = $foto_obtenida;
         }
     }
 

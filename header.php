@@ -60,11 +60,20 @@
             $login_url = home_url( '/login/' );
             
             // Avatar (Intenta obtener avatar o usa uno por defecto)
-            // 1. Buscamos la foto de Google que guardamos en functions.php
-$google_avatar = get_user_meta( $current_user->ID, 'avatar_google', true );
+            // --- BUSCAR FOTO DIRECTO EN LA BASE DE DATOS EXTERNA ---
+$avatar_url = get_avatar_url( $current_user->ID ); // Foto por defecto si falla todo
 
-// 2. Si tiene foto de Google, la usamos. Si no, usamos la de por defecto.
-$avatar_url = !empty( $google_avatar ) ? $google_avatar : get_avatar_url( $current_user->ID );
+if ( $is_logged_in ) {
+    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
+    if ( empty( $app_db->error ) ) {
+        // Buscamos la foto en tu tabla app_usuarios
+        $foto_bd = $app_db->get_var( $app_db->prepare( "SELECT foto_url FROM app_usuarios WHERE email = %s", $current_user->user_email ) );
+        
+        if ( !empty( $foto_bd ) ) {
+            $avatar_url = $foto_bd; // Si hay foto, reemplazamos la de por defecto
+        }
+    }
+}
             ?>
             
             <div class="user-profile-wrapper">
