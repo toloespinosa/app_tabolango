@@ -2,12 +2,15 @@
 // 1. CARGAR AUTH (Esto ya conecta a la BD correcta y maneja CORS)
 require_once 'auth.php'; 
 
-// data_cliente_detalle.php - VERSIÓN FINAL CORREGIDA
-ini_set('display_errors', 0);
+// data_cliente_detalle.php - VERSIÓN FINAL Y BLINDADA
+ini_set('display_errors', 0); // En 0 para evitar que warnings rompan el formato JSON
 error_reporting(E_ALL);
-
-// (Opcional) Si auth.php ya pone los headers, estos sobran, pero dejarlos asegura el tipo de contenido.
 header("Content-Type: application/json; charset=utf-8");
+
+// --- DETECCIÓN DINÁMICA DE ENTORNO ---
+$host = $_SERVER['HTTP_HOST'] ?? '';
+$is_local = (strpos($host, 'localhost') !== false || strpos($host, '.local') !== false || $host === '127.0.0.1' || strpos($host, ':8000') !== false);
+$base_url_app = $is_local ? "http://" . $host : "https://tabolango.cl";
 
 // --- FUNCIONES GLOBALES ---
 
@@ -16,6 +19,7 @@ function json_die($msg) {
     exit;
 }
 
+// Captura de errores fatales para no romper el Front-end
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE)) {
@@ -31,12 +35,6 @@ function getStats($conn, $where, $filter="") {
     return $res ? $res->fetch_assoc() : ['pedidos'=>0, 'inversion'=>0];
 }
 
-// ---------------------------------------------------------
-// 🔴 BLOQUE ELIMINADO: AQUÍ ESTABA EL ERROR
-// No vuelvas a crear $conn = new mysqli(...). 
-// La variable $conn ya existe gracias a 'require_once auth.php'
-// ---------------------------------------------------------
-
 $inputJSON = json_decode(file_get_contents('php://input'), true);
 $id_interno = $_POST['id_interno'] ?? $inputJSON['id_interno'] ?? '';
 $action = $_POST['action'] ?? $inputJSON['action'] ?? $_GET['action'] ?? '';
@@ -51,26 +49,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // A. CATEGORÍAS
     if ($action === 'get_categories') {
         $res = $conn->query("SELECT id_categoria as id, nombre_categoria as nombre FROM categorias_clientes ORDER BY nombre_categoria ASC");
-        $cats = []; if($res) while ($row = $res->fetch_assoc()) $cats[] = $row;
-        echo json_encode($cats); exit;
+        $cats = []; 
+        if($res) while ($row = $res->fetch_assoc()) $cats[] = $row;
+        echo json_encode($cats); 
+        exit;
     }
 
     if (empty($id)) json_die("ID Requerido");
 
     // B. PERFIL
     $stmt = $conn->prepare("SELECT c.*, u.nombre as responsable_nombre FROM clientes c LEFT JOIN app_usuarios u ON c.responsable = u.email WHERE c.id_interno = ?");
-    $stmt->bind_param("i", $id); $stmt->execute();
+    $stmt->bind_param("i", $id); 
+    $stmt->execute();
     $perfil = $stmt->get_result()->fetch_assoc();
+    
     if (!$perfil) json_die("Cliente no encontrado");
 
     $id_madre = $perfil['id_cliente'] ?? '';
     $es_global = $perfil['es_global'] ?? 0;
     
     $where_condition = ($es_global && $id_madre) 
-        ? "pa.id_interno_cliente IN (SELECT id_interno FROM clientes WHERE id_cliente = '$id_madre')"
-        : "pa.id_interno_cliente = $id";
+        ? "pa.id_interno_cliente IN (SELECT id_interno FROM clientes WHERE id_cliente = '" . $conn->real_escape_string($id_madre) . "')"
+        : "pa.id_interno_cliente = " . intval($id);
 
-    // C. FILTROS
+    // C. FILTROS (Optimizado para el Request AJAX del mes/año)
     $filtro_sql = "";
     if (isset($_GET['filtro_tipo']) && $_GET['filtro_tipo'] !== 'total') {
         $val = $conn->real_escape_string($_GET['filtro_valor']);
@@ -79,31 +81,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         elseif ($_GET['filtro_tipo'] == 'solo_año') $filtro_sql = "AND pa.fecha_despacho LIKE '$val-%'";
     }
 
-    // D. PRODUCTOS TOP
+    // D. PRODUCTOS TOP (Consulta BLINDADA contra el error ONLY_FULL_GROUP_BY de MySQL 8)
     $productos = [];
     $sql_prods = "SELECT 
                     pa.producto, 
                     SUM(pa.cantidad) as cant, 
-                    pr.unidad,      
-                    pr.Variedad as variedad,
-                    pr.formato,
-                    pr.calibre
+                    MAX(pr.unidad) as unidad,      
+                    MAX(pr.Variedad) as variedad,
+                    MAX(pr.formato) as formato,
+                    MAX(pr.calibre) as calibre
                   FROM pedidos_activos pa
                   LEFT JOIN productos pr ON pa.id_producto = pr.id_producto
                   WHERE $where_condition AND pa.estado='Entregado' $filtro_sql
-                  GROUP BY pa.producto, pr.Variedad, pr.formato 
+                  GROUP BY pa.producto 
                   ORDER BY cant DESC LIMIT 5";
                   
     $res_p = $conn->query($sql_prods);
-    if($res_p) while($r = $res_p->fetch_assoc()) $productos[] = $r;
+    if($res_p) {
+        while($r = $res_p->fetch_assoc()) $productos[] = $r;
+    }
 
-    // Stats para el filtro AJAX
+    // --- RESPUESTA EXCLUSIVA PARA EL FILTRO AJAX DEL MES ---
     if (isset($_GET['filtro_tipo'])) {
         $stats = getStats($conn, $where_condition, $filtro_sql);
         echo json_encode([
             "success" => true,
             "stats_personalizada" => ["pedidos" => (int)$stats['pedidos'], "monto" => (int)$stats['inversion']],
-            "productos_filtrados" => $productos
+            "productos_filtrados" => $productos // Ahora SÍ llegará con datos
         ]);
         exit;
     }
@@ -119,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if (count($ids_pedidos) > 0) {
             $ids_string = implode(",", $ids_pedidos);
             
-            // Calculamos promedio y traemos DETALLES
             $sql_trend = "SELECT 
                             pa.producto, 
                             MAX(pr.unidad) as unidad,
@@ -142,24 +145,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     $cant = round($p['promedio']);
                     if ($cant < 1) $cant = 1;
                     
-                    // Pluralización
                     $uni = $p['unidad'] ?? 'Un';
                     if ($cant > 1 && stripos($uni, 'kg') === false) {
                         if(substr($uni, -1) !== 's' && substr($uni, -1) !== 'S') $uni .= 's';
                     }
                     
-                    // LÓGICA DE PIPES (|)
                     $detalles_parts = [];
-                    
                     if (!empty($p['variedad'])) $detalles_parts[] = $p['variedad'];
                     if (!empty($p['calibre']))  $detalles_parts[] = "Cal: " . $p['calibre']; 
                     if (!empty($p['formato']))  $detalles_parts[] = $p['formato'];
 
-                    $detalles_str = "";
-                    if (count($detalles_parts) > 0) {
-                        $detalles_str = " " . implode(" | ", $detalles_parts);
-                    }
-
+                    $detalles_str = count($detalles_parts) > 0 ? " " . implode(" | ", $detalles_parts) : "";
                     $items_lista[] = "&bull; <b>$cant $uni</b> de " . $p['producto'] . $detalles_str;
                 }
             }
@@ -174,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     } catch (Exception $e) { $analisis_recurrente = null; }
     
-    // F. FACTURAS (Folio y Fecha)
+    // F. FACTURAS
     $facturas = [];
     $sql_fact = "SELECT 
                     pa.id_pedido, 
@@ -193,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // G. SUCURSALES
     $sucursales = [];
     if ($es_global && $id_madre) {
-        $res_suc = $conn->query("SELECT id_interno, cliente FROM clientes WHERE id_cliente='$id_madre' AND id_interno != $id AND activo=1");
+        $res_suc = $conn->query("SELECT id_interno, cliente FROM clientes WHERE id_cliente='" . $conn->real_escape_string($id_madre) . "' AND id_interno != " . intval($id) . " AND activo=1");
         if($res_suc) while($s = $res_suc->fetch_assoc()) $sucursales[] = $s;
     }
 
@@ -202,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $last_date_res = $conn->query("SELECT fecha_despacho FROM pedidos_activos pa WHERE $where_condition AND pa.estado='Entregado' ORDER BY pa.fecha_despacho DESC LIMIT 1");
     $ultimo = ($last_date_res && $row_l = $last_date_res->fetch_assoc()) ? date("d/m/Y", strtotime($row_l['fecha_despacho'])) : "-";
 
-    // RESPUESTA JSON FINAL
+    // RESPUESTA JSON FINAL (Carga inicial)
     echo json_encode([
         "perfil" => $perfil,
         "sucursales" => $sucursales,
@@ -225,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // A. ACTUALIZAR ESTADO
+    // A. ACTUALIZAR ESTADO (Borrar/Reactivar)
     if ($action === 'delete_client' || $action === 'reactivate_client') {
         $st = ($action === 'delete_client') ? 0 : 1;
         $stmt = $conn->prepare("UPDATE clientes SET activo = ? WHERE id_interno = ?");
@@ -237,10 +233,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
    // B. ACTUALIZAR PERFIL
     if ($action === 'update_client_profile') {
         $id_edit = $_POST['id_interno'] ?? 0;
-        $curr = $conn->query("SELECT * FROM clientes WHERE id_interno = $id_edit")->fetch_assoc();
+        $curr = $conn->query("SELECT * FROM clientes WHERE id_interno = " . intval($id_edit))->fetch_assoc();
         if(!$curr) die(json_encode(["success"=>false, "error"=>"ID faltante"]));
 
-        // Mapeo
+        // Mapeo dinámico
         $rut = $_POST['rut_cliente'] ?? $curr['rut_cliente'];
         $cliente = $_POST['cliente'] ?? $curr['cliente'];
         $razon = $_POST['razon_social'] ?? $curr['razon_social'];
@@ -269,7 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name = "logo_" . $id_edit . "_" . time() . "." . pathinfo($_FILES['logo_cliente']['name'], PATHINFO_EXTENSION);
             if (!is_dir('logos')) mkdir('logos', 0755, true);
             if (move_uploaded_file($_FILES['logo_cliente']['tmp_name'], "logos/" . $name)) {
-                $logo = "https://tabolango.cl/logos/" . $name;
+                // 🔥 Usa la base dinamica para que funcione en Local y Prod perfectamente
+                $logo = $base_url_app . "/logos/" . $name;
             }
         }
 
@@ -289,8 +286,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $logo, $id_edit
         );
 
-        if ($stmt->execute()) echo json_encode(["success"=>true]);
-        else echo json_encode(["success"=>false, "error"=>$stmt->error]);
+        if ($stmt->execute()) {
+            echo json_encode(["success"=>true]);
+        } else {
+            echo json_encode(["success"=>false, "error"=>$stmt->error]);
+        }
         exit;
     }
 }
