@@ -84,7 +84,7 @@ $avatar_url = !empty( $google_avatar ) ? $google_avatar : get_avatar_url( $curre
                 <div class="user-dropdown-menu" id="userDropdown">
                     <div class="dropdown-arrow"></div>
                     <div class="dropdown-header">
-                        <p class="user-name-title"><?php echo esc_html($current_user->display_name); ?></p>
+                        <p class="user-name-title"><?php echo esc_html($current_user->first_name . ' ' . $current_user->last_name); ?></p>
                         <p class="user-status-tag">Sesión Activa</p>
                     </div>
                     <div class="dropdown-content">

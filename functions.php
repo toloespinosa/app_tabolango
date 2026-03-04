@@ -138,7 +138,20 @@ function procesar_login_google_nativo() {
     
     // Disparamos la acción por si algún otro plugin necesita saber que alguien entró
     do_action('wp_login', $user->user_login, $user);
-update_user_meta($user->ID, 'avatar_google', $picture);
+// 1. Guardar o actualizar la foto en la memoria rápida de WordPress
+    update_user_meta($user->ID, 'avatar_google', $picture); 
+    
+    // 2. 🔥 NUEVO: Guardar la foto en tu Base de Datos externa (app_usuarios)
+    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
+    if ( empty( $app_db->error ) && !empty($picture) ) {
+        // Hacemos un UPDATE en tu tabla. 
+        // OJO: Asumo que la columna del correo se llama 'usuario_email' como en tu otra tabla. 
+        // Si se llama 'email', cámbialo en la línea de abajo.
+        $app_db->query( $app_db->prepare(
+            "UPDATE app_usuarios SET foto_url = %s WHERE email = %s", 
+            $picture, $email
+        ));
+    }
     wp_send_json(['status' => 'success', 'message' => 'Bienvenido']);
 }
 
