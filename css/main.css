@@ -1,0 +1,669 @@
+/*
+Theme Name: Tabolango
+Author: Juan Andrés
+Description: El tema de Tu app.
+Version: 1.1 (Integrated)
+Text Domain: tabolango-app
+*/
+
+/* #region 1. ESTILOS GLOBALES Y ESTRUCTURA (CORE) */
+
+/* --- Lienzo Infinito (Fondo Verde) --- */
+
+
+/* 1. Fondo para toda la pantalla */
+body {
+    background: linear-gradient(135deg, #165c38 0%, #0F4B29 50%, #09381f 100%) no-repeat center center fixed !important;
+    background-size: cover !important;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+html {
+    scrollbar-gutter: stable;
+}
+
+/* 2. LA NUEVA REGLA MAESTRA (Limpia) */
+/* Solo afecta a lo que está dentro del wrapper, ignorando modales y overlays */
+#main-content-wrapper {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-top: 20px;
+    /* Espacio para que el contenido no pegue al header */
+    box-sizing: border-box;
+}
+
+/* 3. Aseguramos que el Header también respete el ancho (opcional) */
+.header-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* 4. Blindaje para Modales (para que sigan siendo pantalla completa) */
+.modal-grid-overlay {
+    width: 100% !important;
+    display: none;
+    /* Ahora sí el 'none' funcionará sin peleas */
+}
+
+/* --- EVITAR EL SALTO A LA DERECHA DE SWEETALERT --- */
+body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) {
+    padding-right: 0 !important;
+}
+
+/* --- Limpieza de Astra (Hacer transparente) --- */
+#page,
+.site,
+.site-content,
+.content-area,
+.site-main,
+.ast-container,
+article,
+main,
+.site-footer {
+    background-color: transparent !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* --- Tipografía (Títulos) --- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    margin-bottom: 0.6em;
+    color: #ffffff;
+}
+
+h1 {
+    font-size: 2.5em;
+}
+
+h2 {
+    font-size: 2em;
+}
+
+h3 {
+    font-size: 1.75em;
+}
+
+h4 {
+    font-size: 1.5em;
+}
+
+h5 {
+    font-size: 18px;
+}
+
+h6 {
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* --- Elementos de Interfaz Globales --- */
+input,
+textarea,
+select {
+    background-color: #ffffff !important;
+    border: 1px solid #ccc !important;
+    color: #333 !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+}
+
+.caja-blanca,
+.entry-content table {
+    background: #ffffff !important;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+    color: #333333 !important;
+}
+
+.caja-blanca h1,
+.caja-blanca h2,
+.caja-blanca p,
+.caja-blanca span,
+.caja-blanca label,
+.caja-blanca th,
+.caja-blanca td {
+    color: #333333 !important;
+}
+
+/* SweetAlert2 Theme */
+.m-swal-popup {
+    border-radius: 20px !important;
+    padding: 2em !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+.m-swal-title {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    color: #333 !important;
+}
+
+.m-swal-confirm {
+    border-radius: 12px !important;
+    padding: 12px 30px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    text-transform: uppercase !important;
+}
+
+.swal2-html-container {
+    font-size: 15px !important;
+    color: #666 !important;
+    font-weight: 500 !important;
+}
+
+@media (max-width: 768px) {
+
+    body {
+        max-width: 95% !important;
+        /* Más ancho en móviles para aprovechar el espacio */
+    }
+}
+
+/* --- FIX SWEETALERT Z-INDEX --- */
+/* Garantiza que las alertas siempre aparezcan por encima de los modales (que tienen z-index 9999990) */
+.swal2-container {
+    z-index: 9999999 !important;
+}
+
+/* #endregion */
+
+/* #region 2. HEADER Y NAVEGACIÓN */
+.site-header {
+    padding: 10px 20px;
+    position: relative;
+    z-index: 1000;
+    border-bottom: none !important;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-top: 25px;
+}
+
+.header-left,
+.header-right {
+    flex: 1;
+}
+
+.header-center {
+    flex: 0 0 auto;
+    text-align: center;
+}
+
+.header-right {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.custom-logo {
+    max-height: 90px;
+    width: auto;
+}
+
+/* Menú Hamburguesa */
+.custom-ham-wrapper {
+    position: relative;
+    display: inline-block;
+    text-align: left;
+}
+
+.ham-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+}
+
+.ham-trigger:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.ham-icon {
+    width: 20px;
+    height: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.ham-icon span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: #ffffff;
+    border-radius: 2px;
+}
+
+.ham-label {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.ham-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 0;
+    width: 220px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    display: none;
+    flex-direction: column;
+    z-index: 999999;
+    border: 1px solid #eee;
+    overflow: hidden;
+}
+
+.ham-dropdown.is-open {
+    display: flex !important;
+    animation: hamFadeIn 0.2s ease-out;
+}
+
+@keyframes hamFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ham-header {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    font-size: 11px;
+    font-weight: 800;
+    color: #888;
+    border-bottom: 1px solid #eee;
+}
+
+.ham-body a {
+    padding: 12px 15px;
+    display: block;
+    color: #333 !important;
+    text-decoration: none !important;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ham-body a:hover {
+    background: #fdf2e9;
+    color: #E98C00 !important;
+}
+
+.ham-arrow {
+    position: absolute;
+    top: -5px;
+    left: 18px;
+    width: 10px;
+    height: 10px;
+    background: #f8f9fa;
+    transform: rotate(45deg);
+    z-index: -1;
+}
+
+/* Perfil Usuario */
+.user-profile-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.user-avatar-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 30px;
+    transition: 0.2s;
+}
+
+.user-avatar-trigger:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Texto del Header (Botón principal) */
+.user-welcome-text {
+    color: #ffffff !important;
+    font-size: 14px;
+    font-weight: 600;
+
+    /* 🔥 BLINDAJE CONTRA NOMBRES LARGOS 🔥 */
+    display: inline-block;
+    max-width: 160px;
+    /* Límite de ancho para no romper el header */
+    white-space: nowrap;
+    /* Evita que salte a la segunda línea */
+    overflow: hidden;
+    /* Oculta lo que sobra */
+    text-overflow: ellipsis;
+    /* Agrega los 3 puntitos (...) */
+    vertical-align: middle;
+    /* Mantiene la alineación con la foto */
+}
+
+/* Título dentro del menú desplegable */
+.user-name-title {
+    margin: 0;
+    color: #0F4B29;
+    font-weight: 800;
+    font-size: 13px;
+
+    /* 🔥 BLINDAJE PARA EL MENÚ DESPLEGABLE 🔥 */
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.custom-avatar {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    border: 2px solid #1a7a44 !important;
+    object-fit: cover !important;
+}
+
+.user-dropdown-menu {
+    position: absolute;
+    top: 55px;
+    right: 0;
+    width: 210px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: none;
+    flex-direction: column;
+    z-index: 999999;
+    border: 1px solid #eee;
+}
+
+.user-dropdown-menu.show {
+    display: flex !important;
+    animation: fadeInMenu 0.2s ease;
+}
+
+@keyframes fadeInMenu {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-header {
+    padding: 12px 15px;
+    background: #f4f7f5;
+    border-bottom: 1px solid #eee;
+    border-radius: 12px 12px 0 0;
+}
+
+.user-name-title {
+    margin: 0;
+    color: #0F4B29;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.user-status-tag {
+    margin: 0;
+    color: #27ae60;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.dropdown-content a {
+    padding: 10px 15px;
+    display: block;
+    color: #333 !important;
+    text-decoration: none !important;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dropdown-content a:hover {
+    background: #fdf2e9;
+    color: #E98C00 !important;
+}
+
+.dropdown-divider {
+    border: 0;
+    border-top: 1px solid #eee;
+    margin: 5px 0;
+}
+
+.logout-btn {
+    color: #d32f2f !important;
+}
+
+.dropdown-arrow {
+    position: absolute;
+    top: -5px;
+    right: 15px;
+    width: 10px;
+    height: 10px;
+    background: #f4f7f5;
+    transform: rotate(45deg);
+}
+
+@media (max-width: 600px) {
+    .user-welcome-text {
+        display: none;
+    }
+}
+
+/* #endregion */
+
+/* #region 3. PÁGINA DE INICIO (DASHBOARD) */
+.tabolango-dashboard {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    box-sizing: border-box;
+}
+
+.welcome-section {
+    margin-bottom: 40px;
+    border-left: 6px solid #E98C00;
+    padding-left: 25px;
+}
+
+.welcome-text h1 {
+    font-size: 34px;
+    font-weight: 800;
+    color: #ffffff !important;
+    letter-spacing: -1px;
+    margin: 0;
+    line-height: 1.2;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.welcome-text p {
+    margin: 8px 0 0;
+    color: #E98C00 !important;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 20px;
+}
+
+@media (min-width: 600px) {
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 900px) {
+    .actions-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.action-card {
+    background: #ffffff !important;
+    padding: 35px 15px;
+    text-decoration: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-bottom: 8px solid #ccc;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+.card-verde {
+    border-bottom-color: #0F4B29;
+}
+
+.card-azul {
+    border-bottom-color: #0056b3;
+}
+
+.card-naranja {
+    border-bottom-color: #E98C00;
+}
+
+.card-admin {
+    border-bottom-color: #333333;
+}
+
+.card-stats {
+    border-bottom-color: #8e44ad;
+}
+
+.icon-circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    margin-bottom: 20px;
+    color: #ffffff;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.bg-verde {
+    background-color: #0F4B29;
+}
+
+.bg-azul {
+    background-color: #0056b3;
+}
+
+.bg-naranja {
+    background-color: #E98C00;
+}
+
+.bg-admin {
+    background-color: #333333;
+}
+
+.bg-stats {
+    background-color: #8e44ad;
+}
+
+.plus-icon {
+    position: relative;
+    width: 24px;
+    height: 24px;
+}
+
+.plus-icon::before {
+    content: '';
+    position: absolute;
+    background: white;
+    width: 4px;
+    height: 24px;
+    top: 0;
+    left: 10px;
+    border-radius: 2px;
+}
+
+.plus-icon::after {
+    content: '';
+    position: absolute;
+    background: white;
+    width: 24px;
+    height: 4px;
+    top: 10px;
+    left: 0;
+    border-radius: 2px;
+}
+
+.card-info {
+    text-align: center;
+}
+
+.card-info h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: #1a1a1a !important;
+    text-transform: uppercase;
+}
+
+.card-info p {
+    margin: 8px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #666 !important;
+    letter-spacing: 0.5px;
+}
+
+/* #endregion */

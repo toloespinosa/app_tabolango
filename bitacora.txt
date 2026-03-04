@@ -1,0 +1,13 @@
+
+19/02/2026: 
+[Se usa otra forma de importar la app, se comienza archivo por archivo, creando su respectivo css y js. ya tenemos ok las paginas
+{ingresar pedido, Ver pedidos, Entregados, Precios}
+dejamos asusntos globales en js y css, como que todo contenido sea al 80% del body, eso quedo en el header.]
+el facturador en local funciona solo como prueba y en servidor funciona real.
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+28/2/2026:
+[Se soluciona el problema de que se saliera de la pantalla el nombre del usuario, se le da un limite de caracteres y se le pone puntos suspensivos si se excede.
+se arma la matriz de precios, se le da acceso a los usuarios con rol 1 y 2, se le da acceso a los usuarios con rol 3 y 4 a la lista de precios.
+se arma el login y se elimina nextend social links.]

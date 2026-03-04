@@ -1,0 +1,482 @@
+.operario-container {
+    max-width: 450px;
+    margin: 20px auto;
+    padding: 20px;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    text-align: center;
+}
+
+.app-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 30px;
+    text-align: left;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
+    position: relative;
+    overflow: hidden;
+    border: none;
+}
+
+.app-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 13px;
+    z-index: 20;
+}
+
+.status-badge {
+    position: absolute;
+    top: 3px;
+    right: 0;
+    padding: 10px 20px 8px 20px;
+    font-size: 12px;
+    font-weight: bold;
+    border-bottom-left-radius: 20px;
+    text-transform: uppercase;
+    z-index: 10;
+    border-top-right-radius: 20px;
+}
+
+.status-confirmado::before {
+    background: #3498db;
+}
+
+.status-confirmado .status-badge {
+    background: #3498db;
+    color: white;
+}
+
+.status-preparacion::before {
+    background: #f39c12;
+}
+
+.status-preparacion .status-badge {
+    background: #f39c12;
+    color: white;
+}
+
+.status-despacho::before {
+    background: #f1c40f;
+}
+
+.status-despacho .status-badge {
+    background: #f1c40f;
+    color: white;
+}
+
+.status-entregado::before {
+    background: #27ae60;
+}
+
+.status-entregado .status-badge {
+    background: #27ae60;
+    color: white;
+}
+
+.app-card h2 {
+    margin: 10px 0 10px 0;
+    color: #333;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+    font-size: 16px;
+    color: #666;
+}
+
+.product-list {
+    margin-top: 10px;
+}
+
+.product-item {
+    background: #f9f9f9;
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    border-left: 4px solid #0F4B29;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.product-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+    padding-right: 10px;
+}
+
+.product-qty {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0F4B29;
+    background: #e8f5e9;
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.instruction {
+    color: #ffffff !important;
+    font-size: 14px;
+    margin-bottom: 30px;
+    min-height: 40px;
+}
+
+.btn-main {
+    background: #0F4B29;
+    color: white;
+    border: none;
+    padding: 22px;
+    width: 100%;
+    border-radius: 18px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    backdrop-filter: blur(4px);
+    margin: 0;
+    padding: 0;
+}
+
+.modal-content {
+    background: white;
+    width: 85%;
+    max-width: 340px;
+    padding: 35px 25px;
+    border-radius: 30px;
+    text-align: center;
+    position: relative;
+}
+
+.modal-content h3 {
+    color: #1a1a1a;
+    font-size: 22px;
+    font-weight: 800;
+    margin: 15px 0 10px 0;
+}
+
+.modal-content p {
+    color: #1a1a1a;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.modal-icon {
+    font-size: 40px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+.btn-cancel {
+    flex: 1;
+    background: #f5f5f5;
+    border: none;
+    padding: 16px;
+    border-radius: 14px;
+    font-weight: bold;
+    color: #777;
+    cursor: pointer;
+}
+
+.btn-confirm {
+    flex: 1;
+    background: #0F4B29;
+    border: none;
+    padding: 16px;
+    border-radius: 14px;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+}
+
+.btn-confirm:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#success-screen {
+    background: #0F4B29;
+    padding: 50px 20px;
+    border-radius: 30px;
+    color: white;
+}
+
+#success-screen h2,
+#success-screen p,
+#success-title,
+#success-msg {
+    color: white !important;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.check-icon {
+    font-size: 60px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid white;
+    padding: 12px 25px;
+    border-radius: 10px;
+    color: white;
+    margin-top: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0F4B29;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.btn-map {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #dadce0;
+    background: #f8f9fa;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    font-size: 16px;
+}
+
+#full-screen-signature {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ecf0f1;
+    z-index: 9999999;
+    display: none;
+    flex-direction: column;
+}
+
+.signature-header {
+    padding: 10px;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+    font-weight: bold;
+    color: #555;
+    flex-shrink: 0;
+}
+
+#canvas-container {
+    flex: 1;
+    position: relative;
+    background: #fff;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    touch-action: none;
+}
+
+#canvas-firma {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+.signature-footer {
+    padding: 15px;
+    background: #fff;
+    border-top: 1px solid #ddd;
+    display: flex;
+    gap: 15px;
+    flex-shrink: 0;
+}
+
+.btn-borrar {
+    flex: 1;
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #e74c3c;
+    background: white;
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.btn-aceptar {
+    flex: 2;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    background: #0F4B29;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.btn-foto {
+    flex: 1;
+    background: #e67e22;
+    /* Naranja para la foto */
+    color: white;
+    border: none;
+    padding: 20px 10px;
+    border-radius: 18px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+
+.btn-foto.foto-ok {
+    background: #27ae60;
+    /* Verde cuando ya hay foto */
+    opacity: 0.9;
+}
+
+.btn-firma {
+    flex: 1;
+    background: #27ae60;
+    /* Azul oscuro para firma */
+    color: white;
+    border: none;
+    padding: 20px 10px;
+    border-radius: 18px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Aseguramos que el contenedor posicione elementos relativos */
+#canvas-container {
+    position: relative;
+    /* El resto de tus estilos se mantienen... */
+}
+
+/* El canvas debe estar ARRIBA de la guía para poder dibujar */
+#canvas-firma {
+    position: relative;
+    z-index: 20;
+    /* Mayor que la guía */
+}
+
+/* Busca esto en tu bloque <style> y reemplázalo */
+
+.signature-guide {
+    position: absolute;
+    bottom: 40%;
+    /* Ajusta esto para subirla o bajarla visualmente (20-30% está bien) */
+    left: 10%;
+    right: 10%;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+
+    /* CAMBIO CLAVE: Poner un número alto para que flote ENCIMA del dibujo */
+    z-index: 100;
+
+    /* CAMBIO CLAVE: Esto permite que el dedo "atraviese" la guía y dibuje en el canvas de abajo */
+    pointer-events: none;
+
+    opacity: 0.6;
+    /* Un poco más visible */
+    color: #333;
+}
+
+/* Asegúrate también de que la línea se vea bien */
+.signature-guide .linea {
+    flex: 1;
+    height: 2px;
+    background-color: #333;
+    margin-bottom: 5px;
+}
+
+.signature-guide span {
+    font-size: 30px;
+    font-weight: bold;
+    color: #333;
+    line-height: 1;
+}
+
+/* NUEVO ESTILO PARA EL BOTÓN DE LA TARJETA */
+.btn-card-action {
+    background: #e3f2fd;
+    /* Azul muy clarito */
+    color: #0277bd;
+    /* Azul oscuro */
+    border: 1px solid #b3e5fc;
+    padding: 10px;
+    width: 100%;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 14px;
+    margin-bottom: 15px;
+    /* Espacio antes de la línea de pedido */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+.btn-card-action:active {
+    background: #b3e5fc;
+}

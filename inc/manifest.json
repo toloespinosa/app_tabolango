@@ -1,0 +1,15 @@
+{
+  "name": "Tabolango",
+  "short_name": "Tabolango",
+  "start_url": "https://app.tabolango.cl/",
+  "scope": "https://app.tabolango.cl/",
+  "id": "app-tabolango-pwa",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "https://tabolango.cl/wp-content/uploads/2025/12/Favicon-verde.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,466 @@
+.directorio-wrapper {
+    padding: 20px;
+    max-width: 1200px;
+    /* Ampliamos el ancho máximo para pantallas de PC */
+    margin: auto;
+    font-family: -apple-system, sans-serif;
+}
+
+
+.search-box {
+    margin-bottom: 20px;
+}
+
+#buscador-clientes {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    border: 1px solid #eee;
+    outline: none;
+    font-size: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.input-style {
+    width: 100%;
+    padding: 8px 0;
+    border: none;
+    border-bottom: 1.5px solid #f0f0f0;
+    font-size: 15px;
+    background: transparent;
+    outline: none;
+    transition: border 0.3s;
+}
+
+.input-style:focus {
+    border-bottom-color: #111;
+}
+
+.header-acciones {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+#container-switch-ocultos {
+    margin-right: auto;
+}
+
+/* Toggle Switch iOS Style */
+.ios-switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ios-switch-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+}
+
+.ios-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+
+.ios-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e9e9eb;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+input:checked+.slider {
+    background-color: #34c759;
+}
+
+input:checked+.slider:before {
+    transform: translateX(18px);
+}
+
+.btn-crear-cliente {
+    background: #ff9500;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+    transition: transform 0.1s active;
+}
+
+.btn-crear-cliente:active {
+    transform: scale(0.95);
+    background: #e68600;
+}
+
+/* MODAL */
+.modal-full-screen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+    backdrop-filter: blur(5px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-card-centered {
+    background: white;
+    width: 95%;
+    max-width: 500px;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    position: relative;
+    animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes scaleUp {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.modal-header-mini {
+    padding: 20px 24px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+}
+
+.modal-header-mini h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #111;
+}
+
+.btn-close-minimal {
+    background: #f0f0f0;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.2s ease;
+}
+
+.modal-body-mini {
+    padding: 0 24px 24px;
+}
+
+.form-section-title {
+    font-size: 11px;
+    font-weight: 900;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 25px 0 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.input-minimal {
+    margin-bottom: 14px;
+}
+
+.input-minimal label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.grid-form-mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.btn-confirmar-mini {
+    width: 100%;
+    background: #111;
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 14px;
+    font-weight: 700;
+    margin-top: 15px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* Tarjetas Cliente (Estilos iguales a los anteriores) */
+.cliente-mini-card {
+    display: flex;
+    align-items: stretch;
+    background: white;
+    margin-bottom: 12px;
+    border-radius: 15px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    position: relative;
+    border: 1px solid #f0f0f0;
+    border-left: 6px solid #95a5a6;
+    overflow: hidden;
+    min-height: 85px;
+}
+
+.mini-left {
+    flex: 1;
+    padding: 12px 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mini-logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    flex-shrink: 0;
+    background-color: #f9f9f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: #bbb;
+}
+
+.mini-nombre {
+    margin: 0 0 2px 0 !important;
+    font-size: 14px;
+    color: #1c1c1e;
+    font-weight: 700;
+}
+
+.label-meta {
+    font-size: 9px;
+    color: #aaa;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: 1px;
+}
+
+.monto-badge {
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 12px;
+    display: inline-block;
+}
+
+.meta-destacada {
+    color: #1c1c1e;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.mensual-info {
+    font-size: 10px;
+    color: #999;
+    font-weight: 600;
+    margin-top: 3px;
+}
+
+.flip-zone {
+    width: 100px;
+    perspective: 1000px;
+    position: relative;
+    border-left: 1.5px dashed #f5f5f5;
+}
+
+.flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.flip-zone.is-flipped .flip-inner {
+    transform: rotateX(180deg);
+}
+
+.flip-front,
+.flip-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flip-back {
+    transform: rotateX(180deg);
+}
+
+.alerta-circulo {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-right: 4px;
+}
+
+.rank-pill {
+    background: #fff9e6;
+    padding: 3px 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid #ffebb3;
+}
+
+.rank-number {
+    color: #d48806;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.msg-texto {
+    font-size: 10px;
+    font-weight: 700;
+    color: #444;
+    text-align: center;
+    line-height: 1.1;
+}
+
+.card-success {
+    border-left-color: #34c759 !important;
+}
+
+.card-success .monto-badge {
+    background: #eafaf1;
+    color: #34c759;
+}
+
+.card-success .alerta-circulo {
+    background-color: #34c759;
+}
+
+.card-warning {
+    border-left-color: #ffcc00 !important;
+}
+
+.card-warning .monto-badge {
+    background: #fffbe6;
+    color: #d4a017;
+}
+
+.card-warning .alerta-circulo {
+    background-color: #ffcc00;
+}
+
+.card-danger {
+    border-left-color: #ff3b30 !important;
+}
+
+.card-danger .monto-badge {
+    background: #fff1f0;
+    color: #ff3b30;
+}
+
+.card-danger .alerta-circulo {
+    background-color: #ff3b30;
+}
+
+.progress-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #f2f2f7;
+}
+
+.progress-bar {
+    height: 100%;
+    transition: width 0.8s ease;
+}
+
+.card-success .progress-bar {
+    background-color: #34c759;
+}
+
+.card-warning .progress-bar {
+    background-color: #ffcc00;
+}
+
+.card-danger .progress-bar {
+    background-color: #ff3b30;
+}
+
+.pac-container {
+    z-index: 1000000 !important;
+    pointer-events: auto !important;
+    border-radius: 12px;
+    margin-top: 5px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    font-family: -apple-system, sans-serif;
+}

@@ -1,0 +1,332 @@
+.pdf-container {
+    text-align: left;
+    padding: 10px 0;
+    display: flex;
+    gap: 15px;
+    /* Espacio entre botones */
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.btn-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background-color: #0f4b29;
+    /* Verde Tabolango */
+    color: white;
+    padding: 12px 20px;
+    border-radius: 30px;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: 0.3s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    border: white 1px solid;
+}
+
+.btn-pdf:hover {
+    background-color: #831100;
+    transform: translateY(-2px);
+}
+
+/* Estilo específico para el botón Norte */
+.btn-norte {
+    background-color: #2c3e50;
+    /* Azul oscuro */
+}
+
+.btn-norte:hover {
+    background-color: #34495e;
+    /* Azul más claro al hover */
+}
+
+.btn-icon {
+    font-size: 18px;
+}
+
+/* Contenedor ampliado al máximo */
+.tabolango-admin-panel {
+    background: #fff;
+    border-radius: 20px;
+    padding: 25px;
+    color: #000 !important;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.matriz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.titulo-seccion h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: #0F4B29;
+}
+
+.search-container input {
+    padding: 10px 15px 10px 40px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    width: 250px;
+    background: #f9f9f9;
+    outline: none;
+}
+
+.search-container i {
+    position: absolute;
+    left: 15px;
+    top: 13px;
+    color: #0F4B29;
+}
+
+.precio-table-wp {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+}
+
+.precio-table-wp th {
+    background: #f8f9fa;
+    color: #888 !important;
+    padding: 12px 15px;
+    font-size: 11px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #eee;
+    text-align: left;
+}
+
+.precio-table-wp td {
+    padding: 15px;
+    border-bottom: 1px solid #f4f4f4;
+    vertical-align: middle;
+}
+
+.prod-name {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.sep {
+    color: #F57C00;
+    font-weight: 900;
+    margin: 0 4px;
+}
+
+.details {
+    color: #777;
+    font-weight: 400;
+    font-size: 12px;
+}
+
+/* Input original de 130px */
+.in-matriz {
+    width: 130px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-weight: 800;
+    text-align: right;
+    font-size: 14px;
+}
+
+.in-matriz:focus {
+    border-color: #F57C00;
+    outline: none;
+    background: #fffdf7;
+}
+
+.in-matriz.modified {
+    border: 2px solid #F57C00 !important;
+    background: #fff9e6;
+}
+
+.stats-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 5px;
+}
+
+.m-gan {
+    color: #27ae60;
+}
+
+.p-marg {
+    color: #2980b9;
+}
+
+.p-kilo-badge {
+    font-size: 10px;
+    color: #F57C00;
+    font-weight: 700;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 5px;
+    padding-top: 3px;
+}
+
+.btn-save-row {
+    background: #eee;
+    color: #444;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.btn-save-row.has-changes {
+    background: #0F4B29 !important;
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(15, 75, 41, 0.3);
+}
+
+.negativo {
+    color: #e74c3c !important;
+}
+
+.sticky-col {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 5;
+    border-right: 1px solid #eee;
+}
+
+.col-highlight {
+    background: #fcfcfc;
+}
+
+/* ESTILOS NUEVOS PARA LA COLUMNA LISTA */
+.celda-lista {
+    background-color: #e9f5eb !important;
+    /* Verde muy pálido */
+    border-left: 3px solid #0F4B29 !important;
+    border-right: 3px solid #0F4B29 !important;
+    position: relative;
+}
+
+/* El input dentro de la lista debe verse más importante */
+.celda-lista .in-matriz {
+    font-size: 16px !important;
+    font-weight: 900 !important;
+    color: #0F4B29 !important;
+    background-color: #fff;
+    border: 1px solid #0F4B29;
+    width: 140px;
+    /* Un poco más ancho */
+}
+
+/* Encabezado de la columna lista */
+.th-lista {
+    background-color: #0F4B29 !important;
+    color: #fff !important;
+    /* Texto blanco para destacar */
+    border-top: 3px solid #0F4B29;
+    border-left: 3px solid #0F4B29;
+    border-right: 3px solid #0F4B29;
+    font-size: 13px !important;
+}
+
+/* ESTILOS PARA LA CELDA DE PRODUCTO MEJORADA */
+.prod-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.prod-icon-large {
+    font-size: 24px;
+    margin-right: 12px;
+    width: 30px;
+    text-align: center;
+}
+
+.prod-data-col {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Fila Superior: Nombre + Variedad */
+.prod-top-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.prod-name-main {
+    font-weight: 800;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.badge-var {
+    background-color: #fff3e0;
+    /* Naranja muy suave */
+    color: #e67e22;
+    /* Texto Naranja */
+    border: 1px solid #ffe0b2;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-left: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* Fila Inferior: Detalles */
+.prod-meta {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+.prod-meta i {
+    color: #bdc3c7;
+    margin-right: 4px;
+    font-size: 10px;
+}
+
+.sep-dot {
+    color: #e0e0e0;
+    margin: 0 6px;
+}
+
+/* ESTILO PARA PRODUCTOS INACTIVOS */
+.producto-inactivo {
+    opacity: 0.5;
+    /* Se ve al 50% de transparencia */
+    background-color: #f9f9f9;
+    /* Fondo grisáceo */
+    filter: grayscale(100%);
+    /* Quita el color de iconos y etiquetas */
+    transition: all 0.3s ease;
+    /* Suaviza el efecto */
+}
+
+/* Al pasar el mouse, que recupere el color para poder editar cómodamente */
+.producto-inactivo:hover {
+    opacity: 1;
+    background-color: #fff;
+    filter: grayscale(0%);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}

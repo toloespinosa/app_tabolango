@@ -1,0 +1,8 @@
+2026-02-19 20:54:53 | Cat: notify_pedido_editado | Token ID: 54 | Resp: 200
+2026-02-19 20:54:54 | Cat: notify_pedido_editado | Token ID: 56 | Resp: 200
+2026-02-19 20:56:49 | Cat: notify_pedido_editado | Token ID: 54 | Resp: 200
+2026-02-19 20:56:49 | Cat: notify_pedido_editado | Token ID: 56 | Resp: 200
+2026-02-19 21:00:12 | Cat: notify_pedido_creado | Token ID: 54 | Resp: 200
+2026-02-19 21:00:12 | Cat: notify_pedido_creado | Token ID: 56 | Resp: 200
+2026-02-25 18:22:20 | Cat: notify_pedido_editado | Token ID: 54 | Resp: 404
+2026-02-25 18:22:20 | Cat: notify_pedido_editado | Token ID: 56 | Resp: 404
