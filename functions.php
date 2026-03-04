@@ -257,4 +257,9 @@ function inyectar_identidad_app() {
         console.log('%c 🚀 TABOLANGO APP | USUARIO: {$email} | ROL: {$nombre_rol} ({$rol_id}) ', 'background: #0F4B29; color: #E98C00; font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
     </script>\n";
 }
+/**
+ * OCULTAR LA BARRA NEGRA DE WORDPRESS
+ * Oculta la barra superior para todos en el frontend, manteniendo el diseño de la App limpio.
+ */
+add_filter( 'show_admin_bar', '__return_false' );
 ?>
