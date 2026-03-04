@@ -170,16 +170,16 @@ function tabolango_forzar_login_global() {
 
 /**
  * INYECCIÓN DE ESTADO GLOBAL DE LA APP (Identity Bridge)
- * Define globalmente quién es el usuario y qué permisos tiene usando $wpdb.
- * Incluye Logs de diagnóstico.
+ * Define globalmente quién es el usuario, su avatar y qué permisos tiene.
+ * Conectado a la Base de Datos externa de la App.
  */
 add_action('wp_head', 'inyectar_identidad_app', 5);
 
 function inyectar_identidad_app() {
-    // 1. Si no está logueado, inyectamos la cédula vacía y un log
+    // 1. Si no está logueado, inyectamos datos vacíos
     if (!is_user_logged_in()) {
         echo "\n\n";
-        echo "<script>window.APP_USER_DATA = { email: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
+        echo "<script>window.APP_USER_DATA = { email: '', avatar: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
         return;
     }
 
@@ -187,17 +187,26 @@ function inyectar_identidad_app() {
     $email = $current_user->user_email;
     $rol_id = 0; // 0 = Sin acceso por defecto
     
-    // 2. Conexión global de WordPress (Cero contraseñas expuestas)
-    global $wpdb;
+    // Recuperamos la foto de Google que guardamos en el login
+    $avatar_url = get_user_meta($current_user->ID, 'avatar_google', true);
     
-    $query = $wpdb->prepare(
-        "SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s ORDER BY rol_id ASC LIMIT 1", 
-        $email
-    );
+    // 2. Conexión a la Base de Datos Externa de la App
+    // WordPress usará las credenciales seguras de wp-config.php
+    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
     
-    $rol_obtenido = $wpdb->get_var($query);
-    if ($rol_obtenido !== null) {
-        $rol_id = (int)$rol_obtenido;
+    // Verificamos si hubo un error al conectar
+    if ( !empty( $app_db->error ) ) {
+        error_log("Error conectando a BD App: " . $app_db->error->get_error_message());
+    } else {
+        $query = $app_db->prepare(
+            "SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s ORDER BY rol_id ASC LIMIT 1", 
+            $email
+        );
+        $rol_obtenido = $app_db->get_var($query);
+        
+        if ($rol_obtenido !== null) {
+            $rol_id = (int)$rol_obtenido;
+        }
     }
 
     // 3. Diccionario de Roles para el Log
@@ -222,6 +231,7 @@ function inyectar_identidad_app() {
     echo "<script>
         window.APP_USER_DATA = {
             email: '{$email}',
+            avatar: '{$avatar_url}',
             rol_id: {$rol_id},
             isAdmin: {$is_admin},
             isEditor: {$is_editor},
