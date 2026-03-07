@@ -214,7 +214,7 @@ async function cargarCategorias() {
         select.innerHTML = '';
 
         if (!categorias || categorias.length === 0) {
-            select.innerHTML = '<option value="3">Minorista (Default)</option>';
+            select.innerHTML = '<option value="5">Minorista (Default)</option>';
             return;
         }
 
@@ -224,13 +224,13 @@ async function cargarCategorias() {
             option.value = cat.id;
             option.textContent = cat.nombre;
             select.appendChild(option);
-            if (cat.id == 3) foundDefault = true;
+            if (cat.id == 5) foundDefault = true;
         });
 
-        if (foundDefault) select.value = "3";
+        if (foundDefault) select.value = "5";
 
     } catch (e) {
-        select.innerHTML = '<option value="3" selected>Minorista (Error Carga)</option>';
+        select.innerHTML = '<option value="5" selected>Minorista (Error Carga)</option>';
     }
 }
 

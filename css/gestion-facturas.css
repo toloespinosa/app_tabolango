@@ -1,0 +1,388 @@
+/* --- ESTILOS PREMIUM --- */
+#premium-dashboard {
+    font-family: 'Inter', sans-serif;
+    background: #f8fafc;
+    border-radius: 16px;
+    padding: 30px;
+    margin: 0 auto;
+    color: #334155;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 15px;
+}
+
+.dash-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.dash-subtitle {
+    margin: 5px 0 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.btn-refresh {
+    background: white;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+
+.btn-refresh:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #e2e8f0;
+
+}
+
+.tab-link {
+    background: transparent;
+    border: none;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: 0.3s;
+
+}
+
+.tab-link.active {
+    color: #0f4b29;
+    border-bottom-color: #0f4b29;
+}
+
+.content-wrapper {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    min-height: 400px;
+}
+
+.view-section {
+    animation: fadeIn 0.4s ease;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Centra el contenido de la celda y separa los botones */
+.actions-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+}
+
+.premium-table td:last-child {
+    text-align: center;
+}
+
+/* TABLA */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.premium-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.premium-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 18px 24px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.premium-table td {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #334155;
+    vertical-align: middle;
+}
+
+.premium-table tr:hover td {
+    background-color: #fcfcfc;
+}
+
+.folio-tag {
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 12px;
+    border: 1px solid #dbeafe;
+}
+
+.client-name {
+    font-weight: 600;
+    color: #0f172a;
+    display: block;
+}
+
+.amount-txt {
+    font-family: monospace;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+/* FOLIOS GRID */
+.folios-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.folio-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    background: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.folio-card h4 {
+    margin: 0 0 10px 0;
+    color: #0f172a;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.folio-stat {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.stat-val {
+    font-weight: 700;
+    color: #334155;
+}
+
+.progress-bg {
+    height: 8px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.folio-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.btn-folio {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-folio:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.btn-folio.primary {
+    background: #0f4b29;
+    color: white;
+    border: none;
+}
+
+.btn-folio.primary:hover {
+    background: #0b381e;
+}
+
+/* ESTADO NC */
+.status-nc {
+    background: #fff1f2;
+    color: #be123c;
+    padding: 6px 12px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid #ffe4e6;
+}
+
+.p-btn {
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s;
+}
+
+.p-btn-view {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.p-btn-danger {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.icon-bg {
+    width: 80px;
+    height: 80px;
+    background: #f1f5f9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: #94a3b8;
+    font-size: 30px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+div:where(.swal2-container) {
+    z-index: 999999 !important;
+}
+
+/* FIX IMPERATIVO PARA INPUT SWEETALERT */
+div:where(.swal2-container) input.swal2-input {
+    width: 85% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 1.5em auto !important;
+    height: 3em !important;
+}
+
+/* --- OVERRIDE TEXTOS OSCUROS --- */
+.dash-title,
+.dash-subtitle,
+p,
+h3,
+h4,
+.client-name,
+.amount-txt,
+.stat-val {
+    color: #000000 !important;
+}
+
+.tab-link {
+    color: #111827 !important;
+    font-weight: 700;
+}
+
+.tab-link.active {
+    color: #0f4b29 !important;
+}
+
+.premium-table th {
+    color: #000000 !important;
+    font-weight: 800;
+    background: #e2e8f0;
+}
+
+.premium-table td {
+    color: #111827 !important;
+    font-weight: 500;
+}
+
+.folio-stat {
+    color: #000000 !important;
+    font-weight: 600;
+}
+
+.folio-card h4 small {
+    color: #111827 !important;
+    font-weight: 700 !important;
+}
+
+/* Forzar textos oscuros dentro de las alertas SweetAlert */
+div:where(.swal2-container) .swal2-title,
+div:where(.swal2-container) .swal2-html-container,
+div:where(.swal2-container) .swal2-radio label {
+    color: #000000 !important;
+    font-weight: 600;
+}
+
+div:where(.swal2-container) input.swal2-input {
+    color: #000000 !important;
+    font-weight: bold;
+}
+
+.table-responsive {
+    overflow-y: auto;
+    max-height: 600px;
+    /* Limita la altura para que el scroll se active por dentro */
+}

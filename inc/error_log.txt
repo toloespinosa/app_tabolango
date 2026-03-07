@@ -9,3 +9,9 @@
 2026-03-07 03:09:20 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
 2026-03-07 03:09:20 | Cat: notify_pedido_creado | Token ID: 71 | Resp: 200
 2026-03-07 03:09:21 | Cat: notify_pedido_creado | Token ID: 111 | Resp: 200
+2026-03-07 19:55:40 | Cat: notify_cambio_estado | Token ID: 64 | Resp: 200
+2026-03-07 19:55:40 | Cat: notify_cambio_estado | Token ID: 71 | Resp: 200
+2026-03-07 19:55:40 | Cat: notify_cambio_estado | Token ID: 111 | Resp: 200
+2026-03-07 20:54:59 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
+2026-03-07 20:55:00 | Cat: notify_pedido_editado | Token ID: 71 | Resp: 200
+2026-03-07 20:55:00 | Cat: notify_pedido_editado | Token ID: 111 | Resp: 200
