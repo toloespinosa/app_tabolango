@@ -13,7 +13,7 @@ Text Domain: tabolango-app
 
 /* 1. Fondo para toda la pantalla */
 body {
-    background: linear-gradient(135deg, #165c38 0%, #0F4B29 50%, #09381f 100%) no-repeat center center fixed !important;
+    background: linear-gradient(180deg, #043F14 0%, #108830 100%) no-repeat center center fixed !important;
     background-size: cover !important;
     margin: 0;
     padding: 0;

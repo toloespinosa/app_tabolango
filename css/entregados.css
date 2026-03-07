@@ -29,15 +29,52 @@
      margin: 20px auto;
  }
 
+ /* --- BARRA DE BÚSQUEDA IDÉNTICA A LA IMAGEN --- */
+ .search-wrapper {
+     max-width: 500px;
+     /* Un poco más ancho para que se vea igual a tu captura */
+     margin: 20px auto;
+     background: transparent !important;
+     /* Nos aseguramos de que el contenedor no tenga fondo */
+ }
+
  #buscador-entregados {
      width: 100%;
-     padding: 15px;
-     border-radius: 18px;
-     border: 1px solid rgba(255, 255, 255, 0.2);
-     background: rgba(255, 255, 255, 0.1);
-     color: white;
-     outline: none;
+     padding: 14px 25px;
+     border-radius: 50px !important;
+     /* Ovalado perfecto (Píldora) */
+     border: 1px solid rgba(255, 255, 255, 0.3) !important;
+     /* Borde grisáceo sutil y delgado */
+     background-color: transparent !important;
+     /* FORZAMOS fondo 100% transparente */
+     color: #ffffff !important;
+     font-size: 15px;
+     outline: none !important;
+     box-shadow: none !important;
+     /* Matamos cualquier sombra de Bootstrap */
      box-sizing: border-box;
+     transition: border-color 0.3s ease;
+ }
+
+ /* Efecto de iluminación sutil al hacer clic */
+ #buscador-entregados:focus {
+     border-color: rgba(255, 255, 255, 0.7) !important;
+     background-color: rgba(255, 255, 255, 0.02) !important;
+ }
+
+ /* Color exacto del texto de fondo (Placeholder) */
+ #buscador-entregados::placeholder {
+     color: rgba(255, 255, 255, 0.5) !important;
+     font-weight: 400;
+ }
+
+ /* 🔥 BLINDAJE EXTREMO: Eliminar el fondo blanco/amarillo del autocompletado de Google Chrome/Safari */
+ #buscador-entregados:-webkit-autofill,
+ #buscador-entregados:-webkit-autofill:hover,
+ #buscador-entregados:-webkit-autofill:focus,
+ #buscador-entregados:-webkit-autofill:active {
+     transition: background-color 5000s ease-in-out 0s;
+     -webkit-text-fill-color: white !important;
  }
 
  .btn-masivo-header {

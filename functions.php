@@ -157,106 +157,70 @@ function procesar_login_google_nativo() {
 
 /**
  * BLINDAJE GLOBAL DE LA WEB APP (ZERO TRUST)
- * Redirige a todo usuario no logueado directamente a /login/
  */
 add_action( 'template_redirect', 'tabolango_forzar_login_global' );
-
 function tabolango_forzar_login_global() {
-    // 1. Si el usuario YA está logueado, lo dejamos navegar en paz.
-    if ( is_user_logged_in() ) {
-        return;
+    // 🔥 MODO DIOS: Ahora el servidor también reconoce '.local'
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false) {
+        return; 
     }
 
-    // 2. Excepción crítica: Evitar el bucle infinito. 
-    // Si ya está intentando ver la página "login", no lo redirigimos de nuevo.
-    if ( is_page( 'login' ) ) {
-        return;
-    }
-
-    // 3. Si no está logueado y está intentando ver cualquier otra cosa, lo echamos al login.
+    if ( is_user_logged_in() || is_page( 'login' ) ) { return; }
     wp_redirect( home_url( '/login/' ) );
     exit;
 }
 
-
-
-
 /**
  * INYECCIÓN DE ESTADO GLOBAL DE LA APP (Identity Bridge)
- * Define globalmente quién es el usuario, su avatar y qué permisos tiene.
- * Conectado a la Base de Datos externa de la App.
  */
 add_action('wp_head', 'inyectar_identidad_app', 5);
-
 function inyectar_identidad_app() {
-    // 1. Si no está logueado, inyectamos datos vacíos
-    if (!is_user_logged_in()) {
-        echo "\n\n";
-        echo "<script>window.APP_USER_DATA = { email: '', avatar: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    // 🔥 Le enseñamos al PHP qué es el entorno local exactamente igual que al JS
+    $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
+
+    // 🔥 MODO DIOS: Inyectamos tu identidad global a todo el frontend
+    if ($is_local) {
+        echo "\n<script>
+            window.APP_USER_DATA = { 
+                email: 'jaespinosaa@gmail.com', 
+                rol_id: 1, 
+                isAdmin: true,
+                isEditor: true,
+                isConductor: false,
+                isVendedor: false
+            };
+            console.log('🛠️ MODO DIOS LOCAL ACTIVO | ADMIN GLOBAL');
+        </script>\n";
         return;
     }
 
-    $current_user = wp_get_current_user();
-    $email = $current_user->user_email;
-    $rol_id = 0; // 0 = Sin acceso por defecto
-    
-   // 2. Conexión a la Base de Datos Externa de la App
-    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
-    $avatar_url = ''; // Variable vacía para empezar
-    
-    // Verificamos si hubo un error al conectar
-    if ( !empty( $app_db->error ) ) {
-        error_log("Error conectando a BD App: " . $app_db->error->get_error_message());
-    } else {
-        // A) Buscar el ROL
-        $query_rol = $app_db->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s ORDER BY rol_id ASC LIMIT 1", $email);
-        $rol_obtenido = $app_db->get_var($query_rol);
-        if ($rol_obtenido !== null) {
-            $rol_id = (int)$rol_obtenido;
-        }
-
-        // B) Buscar la FOTO
-        $query_foto = $app_db->prepare("SELECT foto_url FROM app_usuarios WHERE email = %s LIMIT 1", $email);
-        $foto_obtenida = $app_db->get_var($query_foto);
-        if (!empty($foto_obtenida)) {
-            $avatar_url = $foto_obtenida;
-        }
+    // 🛡️ MODO PRODUCCIÓN: Lee la base de datos real
+    if (!is_user_logged_in()) {
+        echo "\n<script>window.APP_USER_DATA = { email: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
+        return;
     }
 
-    // 3. Diccionario de Roles para el Log
-    $nombres_roles = [
-        0 => 'Sin Acceso',
-        1 => 'Administrador',
-        2 => 'Editor',
-        3 => 'Conductor',
-        4 => 'Vendedor',
-        5 => 'Cliente'
-    ];
-    $nombre_rol = isset($nombres_roles[$rol_id]) ? $nombres_roles[$rol_id] : 'Desconocido';
+    $email = wp_get_current_user()->user_email;
+    $rol_id = 0; 
+    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
+    
+    if ( empty( $app_db->error ) ) {
+        $rol_id = (int) $app_db->get_var($app_db->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s LIMIT 1", $email));
+    }
 
-    // 4. Traducir el ID numérico a variables booleanas (True/False)
-    $is_admin     = ($rol_id === 1) ? 'true' : 'false';
-    $is_editor    = ($rol_id === 2) ? 'true' : 'false';
+    $is_admin = ($rol_id === 1) ? 'true' : 'false';
+    $is_editor = ($rol_id === 2) ? 'true' : 'false';
     $is_conductor = ($rol_id === 3) ? 'true' : 'false';
-    $is_vendedor  = ($rol_id === 4) ? 'true' : 'false';
+    $is_vendedor = ($rol_id === 4) ? 'true' : 'false';
 
-    // 5. Imprimimos el comentario HTML invisible y el Script con el Log
-    echo "\n\n";
-    echo "<script>
-        window.APP_USER_DATA = {
-            email: '{$email}',
-            avatar: '{$avatar_url}',
-            rol_id: {$rol_id},
-            isAdmin: {$is_admin},
-            isEditor: {$is_editor},
-            isConductor: {$is_conductor},
-            isVendedor: {$is_vendedor}
-        };
-        
-        // Console Log estilizado (Solo visible si eres Admin por el silenciador de consola)
-        console.log('%c 🚀 TABOLANGO APP | USUARIO: {$email} | ROL: {$nombre_rol} ({$rol_id}) ', 'background: #0F4B29; color: #E98C00; font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 4px;');
-    </script>\n";
+    echo "\n<script>window.APP_USER_DATA = { email: '{$email}', rol_id: {$rol_id}, isAdmin: {$is_admin}, isEditor: {$is_editor}, isConductor: {$is_conductor}, isVendedor: {$is_vendedor} };</script>\n";
 }
+
+
+
+
 /**
  * OCULTAR LA BARRA NEGRA DE WORDPRESS
  * Oculta la barra superior para todos en el frontend, manteniendo el diseño de la App limpio.

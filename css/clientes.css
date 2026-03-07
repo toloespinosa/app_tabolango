@@ -1,11 +1,11 @@
 .directorio-wrapper {
     padding: 20px;
     max-width: 1200px;
-    /* Ampliamos el ancho máximo para pantallas de PC */
+    /* 🔥 ANCHO COMPLETO PARA PC */
+    width: 100%;
     margin: auto;
     font-family: -apple-system, sans-serif;
 }
-
 
 .search-box {
     margin-bottom: 20px;
@@ -21,6 +21,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
+/* 🔥 ESTILOS MODERNOS PARA INPUTS Y SELECTS 🔥 */
 .input-style {
     width: 100%;
     padding: 8px 0;
@@ -34,6 +35,18 @@
 
 .input-style:focus {
     border-bottom-color: #111;
+}
+
+select.input-style {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="%23666" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+    padding-right: 30px;
+    color: #333;
+    cursor: pointer;
 }
 
 .header-acciones {
@@ -246,12 +259,18 @@ input:checked+.slider:before {
     font-size: 16px;
 }
 
-/* Tarjetas Cliente (Estilos iguales a los anteriores) */
+/* 🔥 LISTA DE 1 SOLA COLUMNA 🔥 */
+#lista-clientes {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
 .cliente-mini-card {
     display: flex;
     align-items: stretch;
     background: white;
-    margin-bottom: 12px;
     border-radius: 15px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
     cursor: pointer;
@@ -260,6 +279,7 @@ input:checked+.slider:before {
     border-left: 6px solid #95a5a6;
     overflow: hidden;
     min-height: 85px;
+    width: 100%;
 }
 
 .mini-left {

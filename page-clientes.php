@@ -6,6 +6,8 @@ get_header();
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCbgo4XsKtuPO6riZd_9eQ3ErGXaI89J2M&libraries=places"></script>
 
+<div id="session-email-bridge" style="display:none !important;">[user_email_js]</div>
+
 <div class="directorio-wrapper">
     <div class="header-acciones">
         <div id="container-switch-ocultos" class="ios-switch-wrapper" style="display: none;">
@@ -153,7 +155,6 @@ get_header();
             </div>
         </div>
     </div>
-</div>
-<?php
-get_footer();
-?>
+    </div>
+
+<?php get_footer(); ?>

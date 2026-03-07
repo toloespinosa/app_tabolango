@@ -21,12 +21,44 @@ async function cargarDirectorio() {
         const response = await fetch(`https://tabolango.cl/detalle-cliente.php?action=list_clients&wp_user=${encodeURIComponent(userEmail)}`);
         const data = await response.json();
         todosLosClientes = data.clientes || [];
-        isAdmin = data.is_admin || false;
-        if (isAdmin) document.getElementById('container-switch-ocultos').style.display = 'flex';
+
+        // --- 🔥 LÓGICA DE PERMISOS AGREGADA AQUÍ 🔥 ---
+        // Leemos el rol inyectado globalmente (si existe) o asumimos que es cliente
+        const rolActual = window.APP_USER ? parseInt(window.APP_USER.rol_id) : 0;
+
+        // Administradores
+        isAdmin = (rolActual === 1 || data.is_admin);
+
+        // Roles autorizados para crear: 1(Admin), 2(Editor), 4(Vendedor)
+        const puedeCrear = (rolActual === 1 || rolActual === 2 || rolActual === 4 || isAdmin);
+
+        if (isAdmin) {
+            document.getElementById('container-switch-ocultos').style.display = 'flex';
+        }
+
+        if (puedeCrear) {
+            const btnCrear = document.getElementById('btn-crear-cliente');
+            if (btnCrear) btnCrear.style.display = 'flex';
+        }
+        // ----------------------------------------------
+
         filtrarYRenderizar();
     } catch (e) { console.error("Error al cargar"); }
 }
-
+function obtenerEmailLimpio() {
+    // 🔥 Permite que el Modo Dios funcione si está activado
+    if (window.APP_USER && window.APP_USER.email) {
+        return window.APP_USER.email;
+    }
+    const b = document.getElementById('session-email-bridge');
+    try {
+        if (b) {
+            const match = b.innerText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+            if (match) return match[0].toLowerCase();
+        }
+    } catch (e) { }
+    return "";
+}
 function filtrarYRenderizar() {
     const txt = document.getElementById('buscador-clientes').value.toLowerCase();
 

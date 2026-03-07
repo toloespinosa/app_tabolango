@@ -15,60 +15,63 @@ if ( ! is_user_logged_in() ) {
 }
 ?>
 
-<main class="site-main dashboard-container">
-    
-    <div class="tabolango-dashboard">
-        <header class="welcome-section">
-            <div class="welcome-text">
-                <h1>Hola, <span><?php echo esc_html($nombre_mostrar); ?></span></h1>
-                <p>SISTEMA DE GESTIÓN DE PEDIDOS</p>
+<div class="tabolango-dashboard">
+    <header class="welcome-section">
+        <div class="welcome-text">
+            <h1>Hola, <span id="user-firstname">Cargando...</span></h1>
+            <p>SISTEMA DE GESTIÓN DE PEDIDOS</p>
+        </div>
+    </header>
+
+    <div class="actions-grid">
+        <a href="/ingresar" class="action-card card-verde">
+            <div class="icon-circle bg-verde">
+                <span class="plus-icon"></span>
             </div>
-        </header>
+            <div class="card-info">
+                <h3>Ingresar Pedido</h3>
+                <p>NUEVA VENTA</p>
+            </div>
+        </a>
 
-        <div class="actions-grid">
-            
-            <a href="<?php echo home_url('/ingresar'); ?>" class="action-card card-verde">
-                <div class="icon-circle bg-verde">
-                    <span class="plus-icon"></span>
-                </div>
-                <div class="card-info">
-                    <h3>Ingresar Pedido</h3>
-                    <p>NUEVA VENTA</p>
-                </div>
-            </a>
+        <a href="/pedidos" class="action-card card-azul">
+            <div class="icon-circle bg-azul">📋</div>
+            <div class="card-info">
+                <h3>Ver Pedidos</h3>
+                <p>GESTIÓN ACTIVA</p>
+            </div>
+        </a>
 
-            <a href="<?php echo home_url('/pedidos'); ?>" class="action-card card-azul">
-                <div class="icon-circle bg-azul">📋</div>
-                <div class="card-info">
-                    <h3>Ver Pedidos</h3>
-                    <p>GESTIÓN ACTIVA</p>
-                </div>
-            </a>
+        <a href="https://qr.tabolango.cl" class="action-card card-naranja">
+            <div class="icon-circle bg-naranja">🔍</div>
+            <div class="card-info">
+                <h3>Escanear</h3>
+                <p>VALIDAR ENTREGA</p>
+            </div>
+        </a>
 
-            <a href="https://qr.tabolango.cl" class="action-card card-naranja" target="_blank">
-                <div class="icon-circle bg-naranja">🔍</div>
-                <div class="card-info">
-                    <h3>Escanear</h3>
-                    <p>VALIDAR ENTREGA</p>
-                </div>
-            </a>
-
-            <a href="<?php echo home_url('/entregados'); ?>" class="action-card card-admin">
-                <div class="icon-circle bg-admin">🚚</div>
-                <div class="card-info">
-                    <h3>Entregado</h3>
-                    <p>PEDIDOS ENTREGADOS</p>
-                </div>
-            </a>
-
-            <a href="<?php echo home_url('/estadisticas'); ?>" class="action-card card-stats">
-                <div class="icon-circle bg-stats">📊</div>
-                <div class="card-info">
-                    <h3>Estadísticas</h3>
-                    <p>INTELIGENCIA DE VENTAS</p>
-                </div>
-            </a>
-
-        </div></div></main>
+        <a href="/entregados" class="action-card card-admin" id="btn-admin">
+            <div class="icon-circle bg-admin">🚚</div>
+            <div class="card-info">
+                <h3>Entregado</h3>
+                <p>PEDIDOS ENTREGADOS</p>
+            </div>
+        </a>
+<a href="/estadisticas" class="action-card card-stats">
+            <div class="icon-circle bg-stats">📊</div>
+            <div class="card-info">
+                <h3>Estadísticas</h3>
+                <p>INTELIGENCIA DE VENTAS</p>
+            </div>
+        </a>
+<a href="/gestion-facturas" class="action-card card-verde">
+            <div class="icon-circle bg-stats">💵</div>
+            <div class="card-info">
+                <h3>Gestion de Facturas</h3>
+                <p>VER, ANULAR Y SOLICITAR CAF</p>
+            </div>
+        </a>
+    </div>
+</div>
 
 <?php get_footer(); ?>

@@ -14,20 +14,67 @@ window.formatCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', cu
 window.formatearDinero = window.formatCLP;
 
 // ==========================================================================
-// 2. MOTOR CENTRAL DE IDENTIFICACIÓN (CONECTADO 100% A PHP)
+// 2. MOTOR CENTRAL DE IDENTIFICACIÓN Y SIMULADOR DE ROLES (MODO DIOS)
 // ==========================================================================
-// Ya no adivinamos correos ni usamos fallbacks locales. Leemos la cédula inyectada desde PHP.
-window.APP_USER = window.APP_USER_DATA || {
-    email: "",
-    rol_id: 0,
-    isAdmin: false,
-    isEditor: false,
-    isConductor: false,
-    isVendedor: false
-};
+
+// 🔥 WIDGET VISUAL: Selector flotante de roles (Solo se dibuja en Local)
+if (isLocal) {
+    document.addEventListener('DOMContentLoaded', () => {
+        const panel = document.createElement('div');
+        panel.style.cssText = "position:fixed; bottom:15px; right:15px; z-index:9999999; background:rgba(0,0,0,0.85); padding:8px 12px; border-radius:8px; color:white; font-size:11px; font-family:sans-serif; display:flex; align-items:center; gap:10px; backdrop-filter:blur(5px); border:1px solid #E98C00; box-shadow: 0 4px 10px rgba(0,0,0,0.5);";
+        panel.innerHTML = `
+            <span style="color:#E98C00; font-weight:900; letter-spacing:0.5px;">⚙️ SIMULAR ROL:</span>
+            <select id="sim-rol-select" style="background:#222; color:white; border:1px solid #555; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer; outline:none;">
+                <option value="1">1. Administrador</option>
+                <option value="2">2. Editor</option>
+                <option value="3">3. Conductor</option>
+                <option value="4">4. Vendedor</option>
+                <option value="0">0. Cliente / Sin Permisos</option>
+            </select>
+        `;
+        document.body.appendChild(panel);
+
+        // Lee el rol guardado, si no hay, por defecto es Admin (1)
+        const selector = document.getElementById('sim-rol-select');
+        selector.value = localStorage.getItem('simular_rol_tabolango') || "1";
+
+        // Cuando cambias el rol, lo guarda y recarga la página
+        selector.addEventListener('change', (e) => {
+            localStorage.setItem('simular_rol_tabolango', e.target.value);
+            location.reload();
+        });
+    });
+}
+
+// 🧠 CEREBRO DE IDENTIDAD: Interceptamos la variable global
+Object.defineProperty(window, 'APP_USER', {
+    get: function () {
+        let baseUser = window.APP_USER_DATA || { email: "", rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };
+
+        // Si estamos en local, sobrescribimos los permisos con lo que diga el selector
+        if (isLocal) {
+            const rolSimulado = parseInt(localStorage.getItem('simular_rol_tabolango') || "1");
+            return {
+                email: baseUser.email || 'jaespinosaa@gmail.com', // Mantiene tu correo para que la API funcione
+                rol_id: rolSimulado,
+                isAdmin: rolSimulado === 1,
+                isEditor: rolSimulado === 2,
+                isConductor: rolSimulado === 3,
+                isVendedor: rolSimulado === 4
+            };
+        }
+
+        // En Producción, entrega los datos reales intactos
+        return baseUser;
+    }
+});
 
 window.obtenerEmailLimpio = function () {
-    return window.APP_USER.email;
+    if (typeof window.APP_USER_DATA !== 'undefined' && window.APP_USER_DATA.email) {
+        return window.APP_USER_DATA.email;
+    }
+    const b = document.getElementById('session-email-bridge');
+    return b ? b.innerText.trim() : '';
 };
 
 // ==========================================================================
@@ -38,9 +85,10 @@ window.getApi = function (archivo) {
     let urlFinal = `${BASE_URL}/${archivoLimpio}`;
 
     // Pegamos el correo REAL del usuario conectado en cada petición
-    if (window.APP_USER.email) {
+    const userEmail = window.obtenerEmailLimpio();
+    if (userEmail) {
         const separador = urlFinal.includes('?') ? '&' : '?';
-        urlFinal += `${separador}wp_user=${encodeURIComponent(window.APP_USER.email)}`;
+        urlFinal += `${separador}wp_user=${encodeURIComponent(userEmail)}`;
     }
 
     // Blindaje Total comprobando el protocolo directamente

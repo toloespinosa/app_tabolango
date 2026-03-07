@@ -47,7 +47,10 @@ async function initApp() {
                 sucursalesCliente = Array.isArray(dataCliente.sucursales) ? dataCliente.sucursales : [dataCliente.sucursales];
                 renderSelectorSucursales();
             }
-            isAdmin = (dataCliente.is_admin_user === true || dataCliente.is_admin_user == 1);
+            // 🔥 Obligamos al JS a respetar el Modo Dios Global, además de la BD
+            // 🔥 Validación estricta: Solo Admins (1) o Editores (2) pueden ver los controles
+            let rolServidor = parseInt(dataCliente.is_admin_user) || parseInt(window.APP_USER.rol_id) || 0;
+            isAdmin = (window.APP_USER.isAdmin || window.APP_USER.isEditor || rolServidor === 1 || rolServidor === 2);
             if (isAdmin) {
                 document.getElementById('admin-header').style.display = 'flex';
                 renderBotonEliminar();
@@ -153,9 +156,20 @@ function renderData() {
                 </div>`;
     } else { boxRecurrente.style.display = 'none'; }
 
+    // (Este es el final de renderData)
     renderFacturasList(dataCliente.facturas || []);
     renderProductos(dataCliente.productos || []);
     renderFacturaBody();
+
+    // 🔥 BLINDAJE VISUAL: Ocultar botón "Editar" si no es Admin o Editor
+    const btnEditar = document.getElementById('btn-editar-master');
+    if (btnEditar) {
+        if (!isAdmin) {
+            btnEditar.style.display = 'none';
+        } else {
+            btnEditar.style.display = 'flex'; // O 'block', según tu CSS
+        }
+    }
 }
 
 function renderProductos(lista) {
