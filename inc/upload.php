@@ -1,6 +1,5 @@
 <?php
 require_once 'auth.php';
-// auth.php ya maneja la conexión $conn y algunas cabeceras
 
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
@@ -23,7 +22,10 @@ if (class_exists('\setasign\Fpdi\Fpdi') && class_exists('FPDF')) {
     $pdf_libs_disponibles = true;
 }
 
-// ¡YA NO CREAMOS $conn AQUÍ PORQUE auth.php YA LO HIZO!
+// 🔥 URL BASE DINÁMICA: Detecta Local, Producción o ERP automáticamente 🔥
+$protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) ? "https" : "http";
+$ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+$DOMINIO_BASE = $protocolo . "://" . $_SERVER['HTTP_HOST'] . $ruta_directorio . "/";
 
 $action = $_POST['action'] ?? '';
 $id_pedido = $_POST['id_pedido'] ?? '';
@@ -39,8 +41,11 @@ if ($action === 'delete_document') {
     $res = $stmt->get_result()->fetch_assoc();
     
     if ($res && !empty($res[$columna])) {
-        $path = str_replace('https://tabolango.cl/', '', $res[$columna]);
-        if (file_exists($path)) { unlink($path); }
+        // 🔥 FIX: Extracción inteligente de la ruta física (sin importar el dominio)
+        $partes_path = explode('uploads/', $res[$columna]);
+        $path = (count($partes_path) > 1) ? 'uploads/' . end($partes_path) : '';
+
+        if ($path && file_exists($path)) { unlink($path); }
         
         $sql_upd = "UPDATE pedidos_activos SET $columna = NULL " . ($tipo === 'factura' ? ", numero_factura = NULL " : "") . " WHERE id_pedido = ?";
         $stmt_upd = $conn->prepare($sql_upd);
@@ -75,7 +80,8 @@ if ($action === 'upload_guia_despacho') {
         $filename = "guia_" . $id_pedido . "_" . time() . "." . $ext;
         
         if (move_uploaded_file($_FILES['foto_guia']['tmp_name'], $folder . $filename)) {
-            $url_final = "https://tabolango.cl/" . $folder . $filename;
+            // 🔥 FIX: Guardado con dominio dinámico
+            $url_final = $DOMINIO_BASE . $folder . $filename;
         } else {
             echo json_encode(["status" => "error", "message" => "Error al guardar archivo"]);
             exit;
@@ -137,7 +143,8 @@ if ($action === 'update_admin_order') {
         if (!file_exists($carpeta)) { mkdir($carpeta, 0777, true); }
         $nombre_archivo = "fact_" . $id_pedido . "_" . time() . "." . $ext;
         if (move_uploaded_file($tmp_path, $carpeta . $nombre_archivo)) {
-            $url_final = "https://tabolango.cl/" . $carpeta . $nombre_archivo;
+            // 🔥 FIX: Guardado con dominio dinámico
+            $url_final = $DOMINIO_BASE . $carpeta . $nombre_archivo;
         }
     }
     
@@ -233,7 +240,8 @@ if (isset($_POST['qr_token'])) {
             $filename = "ev_" . $id_p . "_" . time() . ".jpg";
             if (move_uploaded_file($_FILES['foto']['tmp_name'], $folder . $filename)) {
                 $ruta_foto_evidencia = $folder . $filename;
-                $foto_evidencia_url = "https://tabolango.cl/" . $folder . $filename;
+                // 🔥 FIX: Evidencia con dominio dinámico
+                $foto_evidencia_url = $DOMINIO_BASE . $folder . $filename;
             }
         }
 
@@ -244,9 +252,11 @@ if (isset($_POST['qr_token'])) {
             $firma_path = $folder_firmas . "s_" . $id_p . "_" . time() . ".png";
             move_uploaded_file($_FILES['img_firma']['tmp_name'], $firma_path);
 
-            $ruta_relativa_guia = str_replace('https://tabolango.cl/', '', $pedido['url_guia']);
+            // 🔥 FIX CRÍTICO: Buscar archivo independientemente del dominio
+            $partes_guia = explode('uploads/', $pedido['url_guia']);
+            $ruta_relativa_guia = (count($partes_guia) > 1) ? 'uploads/' . end($partes_guia) : '';
             
-            if (file_exists($ruta_relativa_guia) && $pdf_libs_disponibles) {
+            if (!empty($ruta_relativa_guia) && file_exists($ruta_relativa_guia) && $pdf_libs_disponibles) {
                 try {
                     $pdf = new \setasign\Fpdi\Fpdi();
                     $total_paginas = $pdf->setSourceFile($ruta_relativa_guia);
@@ -308,7 +318,8 @@ if (isset($_POST['qr_token'])) {
                     $ruta_pdf_final = $folder_final . $nombre_pdf_final;
                     
                     $pdf->Output('F', $ruta_pdf_final);
-                    $pdf_firmado_url = "https://tabolango.cl/" . $ruta_pdf_final;
+                    // 🔥 FIX: Dominio dinámico para el PDF de recepción firmado
+                    $pdf_firmado_url = $DOMINIO_BASE . $ruta_pdf_final;
                     $ruta_pdf_fisica = $ruta_pdf_final;
 
                     // Enviar Email al Cliente
@@ -378,7 +389,6 @@ if (isset($_POST['qr_token'])) {
     if ($nuevo) {
         $update_fields = ["estado = '$nuevo'"];
         
-        // Agregar coordenadas si existen, limpiando la coma inicial si es necesario
         if ($sql_gps_part) {
             $gps_clean = ltrim($sql_gps_part, ', ');
             if ($gps_clean) $update_fields[] = $gps_clean;
@@ -387,32 +397,26 @@ if (isset($_POST['qr_token'])) {
         if ($foto_evidencia_url) $update_fields[] = "evidencia_entrega = '$foto_evidencia_url'";
         if ($pdf_firmado_url) $update_fields[] = "url_factura_firmada = '$pdf_firmado_url'";
 
-        // 1. PREPARAR EL TEXTO PARA EL HISTORIAL ACUMULADO (OBSERVACIONES)
         $obs_historial = "";
         if ($nombre_receptor) $obs_historial .= " | Recibido por: $nombre_receptor ($rut_receptor)";
         if ($obs_input) $obs_historial .= " | Nota Entrega: $obs_input";
 
         if ($obs_historial) {
-            // Se usa CONCAT para no borrar lo anterior
             $update_fields[] = "observaciones = CONCAT(IFNULL(observaciones, ''), '" . $conn->real_escape_string($obs_historial) . "')";
         }
 
-        // 2. GUARDAR LA ALERTA EN LA NUEVA COLUMNA (SOLO LA NOTA ACTUAL)
-        // Esto dispara la alerta roja en el frontend si tiene texto
         if (!empty($obs_input)) {
             $update_fields[] = "observacion_entrega = '" . $conn->real_escape_string($obs_input) . "'";
         }
 
         $sql_final = "UPDATE pedidos_activos SET " . implode(', ', $update_fields) . " WHERE id_pedido = '$id_p'";
         
-        // --- NOTIFICACIÓN PUSH ---
         if ($conn->query($sql_final)) {
             
             $titulo = "";
             $cuerpo = "";
             $categoria = ""; 
 
-            // 1. Configurar textos según el nuevo estado
             if ($nuevo === 'Entregado') {
                 $titulo = "✅ Pedido Entregado";
                 $cuerpo = "Cliente: $nombre_cliente | El pedido ha sido entregado exitosamente.";
@@ -434,22 +438,14 @@ if (isset($_POST['qr_token'])) {
                 $categoria = "notify_cambio_estado";
             }
 
-            // 2. LÓGICA DE FILTRO PARA EL CLIENTE "PRUEBA"
             $destinatario = (trim(strtolower($nombre_cliente)) === 'prueba') ? 'jandres@tabolango.cl' : null;
 
             if ($destinatario !== null) {
                 $titulo = "🧪 [TEST] " . $titulo;
             }
 
-            // 3. Llamar a la función de envío
             if (function_exists('enviarNotificacionFCM')) {
-                enviarNotificacionFCM(
-                    $destinatario,   // Tu mail si es prueba, null si es real
-                    $titulo,        
-                    $cuerpo,        
-                    "",             
-                    $categoria      
-                );
+                enviarNotificacionFCM($destinatario, $titulo, $cuerpo, "", $categoria);
             }
 
             echo json_encode(["status" => "success", "nuevo_estado" => $nuevo]);
@@ -467,7 +463,8 @@ if ($action === 'upload_evidencia_manual') {
         $filename = "ev_manual_" . $id_pedido . "_" . time() . ".jpg";
         
         if (move_uploaded_file($_FILES['foto']['tmp_name'], $folder . $filename)) {
-            $url = "https://tabolango.cl/" . $folder . $filename;
+            // 🔥 FIX: Dominio dinámico para carga manual
+            $url = $DOMINIO_BASE . $folder . $filename;
             $stmt = $conn->prepare("UPDATE pedidos_activos SET evidencia_entrega = ? WHERE id_pedido = ?");
             $stmt->bind_param("ss", $url, $id_pedido);
             echo json_encode(["status" => $stmt->execute() ? "success" : "error"]);

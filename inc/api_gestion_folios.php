@@ -20,13 +20,10 @@ $CERT_PATH   = __DIR__ . "/uploads/certificados/certificado.pfx";
 $DIR_CAF     = __DIR__ . "/uploads/certificados/";
 
 try {
-    // 🔥 CONEXIÓN DINÁMICA VÍA AUTH.PHP 🔥
-    // Verificamos si existe un socket definido y no está vacío
-$socket = (defined('APP_DB_SOCKET') && APP_DB_SOCKET !== '') ? APP_DB_SOCKET : null;
-
-// En mysqli, el orden es: host, user, pass, db, puerto (3306), socket
-$conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306, $socket);
-    $conn->set_charset("utf8mb4");
+    // Ya NO necesitamos crear $conn aquí porque auth.php lo hizo en la línea 2.
+    if (!isset($conn) || $conn->connect_error) {
+        throw new Exception("Error de conexión a la BD heredada de auth.php");
+    }
 
     $action = $_GET['action'] ?? 'status';
 

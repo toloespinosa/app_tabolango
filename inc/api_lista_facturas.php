@@ -4,39 +4,49 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 
 try {
-    // 🔥 USAMOS LA CONEXIÓN DINÁMICA DE auth.php 🔥
-    // Verificamos si existe un socket definido y no está vacío
-$socket = (defined('APP_DB_SOCKET') && APP_DB_SOCKET !== '') ? APP_DB_SOCKET : null;
-
-// En mysqli, el orden es: host, user, pass, db, puerto (3306), socket
-$conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306, $socket);
-    $conn->set_charset("utf8mb4");
+    // 1. Verificamos que auth.php nos haya entregado la conexión correcta
+    if (!isset($conn) || $conn->connect_error) {
+        throw new Exception("Error de conexión a la BD heredada de auth.php");
+    }
 
     $action = $_GET['action'] ?? 'emitidas';
+    
+    // 2. Capturamos los parámetros de paginación de tu JS
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 25;
+    $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
     if ($action == 'emitidas') {
-        // Verificar columna estado_nota_credito
         $cols = $conn->query("SHOW COLUMNS FROM pedidos_activos LIKE 'estado_nota_credito'");
         $col_nc = ($cols && $cols->num_rows > 0) ? "estado_nota_credito" : "'' as estado_nota_credito";
 
-        // Verificar columna url_nc (NUEVO)
         $cols_url = $conn->query("SHOW COLUMNS FROM pedidos_activos LIKE 'url_nc'");
         $col_url_nc = ($cols_url && $cols_url->num_rows > 0) ? "url_nc" : "'' as url_nc";
 
-        // Consulta actualizada con $col_url_nc
+        // 3. Consulta compatible con STRICT MODE (ONLY_FULL_GROUP_BY) y Paginación
         $sql = "SELECT 
-                    id_pedido, numero_factura, fecha_despacho, cliente, url_factura, $col_nc, $col_url_nc,
+                    MAX(id_pedido) as id_pedido, 
+                    numero_factura, 
+                    MAX(fecha_despacho) as fecha_despacho, 
+                    MAX(cliente) as cliente, 
+                    MAX(url_factura) as url_factura, 
+                    MAX($col_nc) as estado_nota_credito, 
+                    MAX($col_url_nc) as url_nc,
                     SUM(precio_unitario * cantidad) as neto_calculado
                 FROM pedidos_activos 
                 WHERE numero_factura > 0 
                 GROUP BY numero_factura 
-                ORDER BY fecha_despacho DESC, numero_factura DESC";
+                ORDER BY MAX(fecha_despacho) DESC, CAST(numero_factura AS UNSIGNED) DESC
+                LIMIT $limit OFFSET $offset";
                 
         $res = $conn->query($sql);
-        $data = [];
         
+        // Si el SQL falla, ahora nos dirá exactamente por qué
+        if (!$res) {
+            throw new Exception("Error SQL: " . $conn->error);
+        }
+        
+        $data = [];
         while($row = $res->fetch_assoc()) {
-            // LÓGICA CORRECTA: Neto * 1.19
             $neto = (float)$row['neto_calculado'];
             $bruto = round($neto * 1.19);
             

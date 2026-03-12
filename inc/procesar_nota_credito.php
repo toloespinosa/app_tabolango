@@ -1,6 +1,6 @@
 <?php
 require_once 'auth.php';
-// procesar_nota_credito.php - V15: DTE + SOBRE + SII + MULTIRANGO CAF + PDF CON DOMPDF + PARCIAL/TOTAL + MODO SIMULACIÓN
+// procesar_nota_credito.php - V16: DOMINIO DINÁMICO Y SINGLETON DB
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
@@ -14,13 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// 🔥 DETECCIÓN DE ENTORNO 🔥
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
 
-// =========================================================================
-// 1. CARGAR LIBRERÍA DOMPDF
-// =========================================================================
 $rutas_posibles = [__DIR__ . '/vendor/autoload.php', __DIR__ . '/autoload.php', __DIR__ . '/librerias/autoload.php'];
 $autoload_encontrado = false;
 foreach ($rutas_posibles as $ruta) { 
@@ -44,7 +40,6 @@ function cleanStr($str) {
     return trim(mb_substr(strtr($str, $unwanted), 0, 80));
 }
 
-// [Misma función generarPDFNotaCredito de tu código original...]
 function generarPDFNotaCredito($ruta_destino, $datos, $html_ted_code) {
     extract($datos);
     $fecha_visual = date("d-m-Y");
@@ -54,7 +49,6 @@ function generarPDFNotaCredito($ruta_destino, $datos, $html_ted_code) {
     
     $texto_accion = ($tipo_nc === 'parcial') ? 'CORRIGE MONTO FACTURA N° ' : 'ANULA FACTURA N° ';
     
-    // Fila del detalle
     $filas = '<tr>
                 <td style="padding:5px 5px 5px 10px; border-bottom:1px solid #ddd; color:#000;"><strong>'.$texto_accion.$numero_factura.'</strong><br><span style="font-size:10px; font-style:italic;">'.$razon_ref.'</span></td>
                 <td style="text-align:right; padding:5px 2px 5px 5px; border-bottom:1px solid #ddd; width:30px; color:#000;">1</td>
@@ -63,7 +57,6 @@ function generarPDFNotaCredito($ruta_destino, $datos, $html_ted_code) {
                 <td style="text-align:right; padding:5px 10px 5px 5px; border-bottom:1px solid #ddd; color:#000;">$'.$neto_fmt.'</td>
               </tr>';
 
-    // Cuadro de Referencia
     $html_referencia_bottom = '<div style="margin-top: 15px; border: 1px solid #000; background-color: #f9f9f9; padding: 8px; font-size: 11px; color:#000;">
         <strong>REFERENCIA:</strong>
         <table width="100%" style="margin-top:4px; color:#000;">
@@ -98,7 +91,11 @@ function generarPDFNotaCredito($ruta_destino, $datos, $html_ted_code) {
 }
 
 try {
-    $DOMINIO_BASE = "https://tabolango.cl/"; 
+    // 🔥 URL BASE DINÁMICA: Para evitar romper enlaces al migrar al ERP
+    $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+    $ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+    $DOMINIO_BASE = $protocolo . "://" . $_SERVER['HTTP_HOST'] . $ruta_directorio . "/";
+    
     $API_KEY = "7165-N580-6393-2899-7690"; 
     $RUT_EMISOR = "77121854-7";
     $RUT_CERTIFICADO = "8201627-9";
@@ -108,16 +105,12 @@ try {
     
     $PATH_CERT = __DIR__ . "/uploads/certificados/certificado.pfx";
 
-    // En local evitamos chequear si existe el certificado para que no tire error si no lo tienes descargado
     if (!$is_local && !file_exists($PATH_CERT)) throw new Exception("Error: No se encuentra el certificado.");
 
-    // 🔥 USAMOS LA CONEXIÓN DINÁMICA DE auth.php 🔥
-    // Verificamos si existe un socket definido y no está vacío
-$socket = (defined('APP_DB_SOCKET') && APP_DB_SOCKET !== '') ? APP_DB_SOCKET : null;
-
-// En mysqli, el orden es: host, user, pass, db, puerto (3306), socket
-$conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306, $socket);
-    $conn->set_charset("utf8mb4");
+    // 🔥 USAMOS LA CONEXIÓN HEREDADA DE auth.php 🔥
+    if (!isset($conn) || $conn->connect_error) {
+        throw new Exception("Error crítico: Conexión a base de datos perdida.");
+    }
 
     $input = json_decode(file_get_contents('php://input'), true);
     if (!isset($input['id_pedido']) || empty($input['id_pedido'])) {
@@ -125,7 +118,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     }
     $id_pedido = $conn->real_escape_string($input['id_pedido']);
     
-    // Capturar tipo de anulación (total o parcial) y el monto específico
     $tipo_nc = isset($input['tipo_nc']) ? $input['tipo_nc'] : 'total';
     $monto_neto_parcial = isset($input['monto_neto_parcial']) ? (int)$input['monto_neto_parcial'] : 0;
 
@@ -139,18 +131,17 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
 
     $neto_original = (int)$row['neto_db'];
 
-    // LÓGICA DE MONTOS Y REFERENCIAS SEGÚN TIPO
     if ($tipo_nc === 'parcial' && $monto_neto_parcial > 0) {
         if ($monto_neto_parcial > $neto_original) {
             throw new Exception("El monto parcial ($monto_neto_parcial) no puede ser mayor al neto original ($neto_original).");
         }
         $monto_neto = $monto_neto_parcial;
-        $codigo_referencia = 3; // 3 = Corrige montos
+        $codigo_referencia = 3; 
         $razon_ref = "CORRIGE MONTO FACTURA POR DESCUENTO/DEVOLUCION";
         $nombre_detalle = "CORRIGE MONTO FACTURA " . $row['numero_factura'];
     } else {
         $monto_neto = $neto_original;
-        $codigo_referencia = 1; // 1 = Anula documento
+        $codigo_referencia = 1; 
         $razon_ref = "ANULA POR ERROR DE SISTEMA";
         $nombre_detalle = "ANULACION FACTURA " . $row['numero_factura'];
     }
@@ -158,7 +149,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     $monto_iva   = round($monto_neto * 0.19);
     $monto_total = $monto_neto + $monto_iva;
 
-    // Obtener Folio NC revisando historial
     $sql_f = "SELECT MAX(CAST(folio_sii as UNSIGNED)) as max_h FROM facturas_historial WHERE tipo_documento = 'nota_credito'";
     $row_f = $conn->query($sql_f)->fetch_assoc();
     $max_historial = (int)($row_f['max_h'] ?? 0);
@@ -171,14 +161,10 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     if ($ultimo_folio_usado < 19) { $ultimo_folio_usado = 19; }
     $folio_nc = $ultimo_folio_usado + 1; 
 
-    // 🔥 BLINDAJE: SI ESTAMOS EN LOCAL, CORTAMOS EL CÓDIGO AQUÍ Y SIMULAMOS 🔥
+    // MODO LOCAL SIMULADO
     if ($is_local) {
-        $folio_nc_simulado = 990000 + rand(1, 999); // Folios altos con 99XXXX para identificar simulaciones
-
-        // Simulamos la creación del PDF guardando una URL de prueba
-        $url_pdf_simulada = "https://tabolango.cl/media/logo_tabolango.png"; // Se puede cambiar a un PDF falso
-
-        // Actualizamos la base de datos local
+        $folio_nc_simulado = 990000 + rand(1, 999); 
+        $url_pdf_simulada = "https://tabolango.cl/media/logo_tabolango.png"; 
         $conn->query("UPDATE pedidos_activos SET estado_nota_credito = 'EMITIDA', numero_nc = '$folio_nc_simulado', url_nc = '$url_pdf_simulada' WHERE id_pedido = '$id_pedido'");
 
         echo json_encode([
@@ -188,19 +174,14 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
             "url_xml" => "#",
             "track_id" => "SIM_TRACK_LOCAL"
         ]);
-        exit; // Detenemos PHP para que no intente ejecutar los cURL del SII
+        exit; 
     }
-
 
     $rut_cliente_fmt = $row['rut_cliente'];
     $rut_cliente = str_replace(['.',' '],'',$row['rut_cliente']);
 
-    // =========================================================================
-    // LÓGICA INTELIGENTE DE CAF: BÚSQUEDA Y AUTOLIMPIEZA
-    // =========================================================================
     $dir_certificados = __DIR__ . "/uploads/certificados/";
     $PATH_CAF = "";
-    
     $archivos_caf = glob($dir_certificados . "*caf_61*.xml");
 
     foreach ($archivos_caf as $archivo) {
@@ -221,9 +202,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
         throw new Exception("Error crítico: No se encontró un archivo CAF válido para emitir el folio $folio_nc. Por favor descargue nuevos folios desde el panel.");
     }
 
-    // =========================================================================
-    // PASO 1: GENERAR EL DTE FIRMADO (PRODUCCIÓN)
-    // =========================================================================
     $payload_dte = [
         "Documento" => [
             "Encabezado" => [
@@ -256,9 +234,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     $tmp_dte_path = sys_get_temp_dir() . "/dte_61_" . $folio_nc . "_" . time() . ".xml";
     file_put_contents($tmp_dte_path, $xml_dte_generado);
 
-    // =========================================================================
-    // PASO 2: GENERAR SOBRE
-    // =========================================================================
     $payload_sobre = [
         "Certificado" => ["Rut" => $RUT_CERTIFICADO, "Password" => $PASS_CERTIFICADO],
         "Caratula" => [
@@ -289,9 +264,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     $tmp_sobre_path = sys_get_temp_dir() . "/sobre_nc_" . $folio_nc . "_" . time() . ".xml";
     file_put_contents($tmp_sobre_path, $resp2);
 
-    // =========================================================================
-    // PASO 3: ENVIAR AL SII
-    // =========================================================================
     $payload_sii = ["Certificado" => ["Rut" => $RUT_CERTIFICADO, "Password" => $PASS_CERTIFICADO], "Ambiente" => 1, "Tipo" => 1];
     $ch3 = curl_init("https://api.simpleapi.cl/api/v1/envio/enviar");
     curl_setopt($ch3, CURLOPT_POST, 1);
@@ -314,9 +286,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     }
     $track_id = $api_data3['trackId'] ?? $api_data3['TrackId'] ?? 'OK_SIN_TRACKID';
 
-    // =========================================================================
-    // POST-PROCESAMIENTO: GUARDAR XML Y GENERAR PDF
-    // =========================================================================
     $carpeta_xml = "uploads/nc_xml/";
     $carpeta_pdf = "uploads/nc_pdf/";
     if (!is_dir(__DIR__ . "/" . $carpeta_xml)) mkdir(__DIR__ . "/" . $carpeta_xml, 0755, true);
@@ -357,9 +326,6 @@ $conn = new mysqli(APP_DB_HOST, APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, 3306,
     
     generarPDFNotaCredito($ruta_pdf_local, $datos_pdf, $html_ted_code);
 
-    // =========================================================================
-    // ACTUALIZAR BASE DE DATOS Y RESPONDER
-    // =========================================================================
     $stmt_ins = $conn->prepare("INSERT INTO facturas_historial (id_pedido_sistema, folio_sii, tipo_documento, ruta_xml_local, estado_api, json_respuesta) VALUES (?, ?, 'nota_credito', ?, 'OK', ?)");
     $log_msg = "Enviado SII | TrackID: " . $track_id . " | Tipo: " . strtoupper($tipo_nc);
     $stmt_ins->bind_param("siss", $id_pedido, $folio_nc, $url_xml_web, $log_msg); 
