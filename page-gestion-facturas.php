@@ -1,5 +1,6 @@
 <?php
 /* Template Name: Panel de Facturacion */
+tabolango_requerir_rol([1, 2]);
 get_header();
 ?>
 

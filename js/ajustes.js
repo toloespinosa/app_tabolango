@@ -1,123 +1,165 @@
 // ==========================================
-// SCRIPTS UNIFICADOS DE AJUSTES
+// SCRIPTS UNIFICADOS DE AJUSTES (CON DETECTIVE)
 // ==========================================
 
-// Utilidades Globales para obtener usuario
-function obtenerEmailSesion() {
-    if (typeof window.APP_USER !== 'undefined' && window.APP_USER.email) {
-        return window.APP_USER.email;
+const API_NOTI = window.getApi('ajustes_noti.php');
+const API_USUARIOS = window.getApi('usuarios.php');
+
+document.addEventListener("DOMContentLoaded", async () => {
+    // 🔥 EL DETECTIVE DEL FRONTEND 🔥
+    console.log("%c========================================", "color: #e74c3c; font-size: 14px; font-weight: bold;");
+    console.log("%c🕵️‍♂️ DETECTIVE DE SESIÓN ACTIVADO", "color: #3498db; font-size: 16px; font-weight: bold;");
+
+    const bridge = document.getElementById('session-email-bridge');
+    console.log("%c1. El HTML (header) dice que eres:", "color: #2ecc71; font-weight: bold;", bridge ? bridge.textContent.trim() : "NO EXISTE EL DIV");
+    console.log("%c2. JavaScript (APP_USER) forzó el email a:", "color: #2ecc71; font-weight: bold;", window.APP_USER.email);
+    console.log("%c3. JavaScript asume que eres Admin?:", "color: #2ecc71; font-weight: bold;", window.APP_USER.isAdmin ? "SÍ" : "NO");
+
+    try {
+        const separador = API_USUARIOS.includes('?') ? '&' : '?';
+        const r = await fetch(`${API_USUARIOS}${separador}action=debug_session`);
+        const text = await r.text();
+        console.log("%c4. El Backend PHP y WordPress dicen:", "color: #e67e22; font-weight: bold;", text);
+    } catch (e) {
+        console.log("No se pudo contactar al backend para el debug.");
     }
-    const b = document.getElementById('session-email-bridge');
-    if (b) {
-        const m = b.textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        if (m) return m[0].toLowerCase();
-    }
-    return '';
-}
+    console.log("%c========================================", "color: #e74c3c; font-size: 14px; font-weight: bold;");
 
-function esAdminSesion() {
-    if (typeof window.APP_USER !== 'undefined') return window.APP_USER.isAdmin;
-    return false;
-}
-
-let currentUserEmail = '';
-let currentUserIsAdmin = false;
-
-// 🔥 FORZAMOS RUTAS A PRODUCCIÓN (Evita el "Error de conexión BD" en local)
-const API_NOTI = 'https://tabolango.cl/ajustes_noti.php';
-const API_USUARIOS = 'https://tabolango.cl/usuarios.php';
-
-document.addEventListener("DOMContentLoaded", () => {
-    currentUserEmail = obtenerEmailSesion();
-    currentUserIsAdmin = esAdminSesion();
+    // --- INICIO DE LÓGICA NORMAL ---
+    const currentUserEmail = window.APP_USER.email;
+    const currentUserIsAdmin = window.APP_USER.isAdmin;
 
     // 1. Iniciar siempre las notificaciones
-    initPreferences();
+    initPreferences(currentUserEmail, currentUserIsAdmin);
 
-    // 2. Solo si es Admin, inyectamos y cargamos el panel de Roles
+    // 2. Si es Admin, revelamos la pestaña de "Permisos" y cargamos la tabla
     if (currentUserIsAdmin) {
-        document.getElementById('panel-admin-roles').style.display = 'block';
-        cargarDataRoles();
+        const btnTabPermisos = document.getElementById('btn-tab-permisos');
+        const panelAdminRoles = document.getElementById('panel-admin-roles');
+        const userSelectorWrapper = document.getElementById('admin-user-selector-wrapper');
+
+        if (btnTabPermisos) btnTabPermisos.style.display = 'flex';
+        if (panelAdminRoles) panelAdminRoles.style.display = 'block';
+        if (userSelectorWrapper) userSelectorWrapper.style.display = 'block';
+
+        cargarDataRoles(currentUserEmail);
     }
 });
 
-// --- LÓGICA DE NOTIFICACIONES ---
-async function initPreferences() {
+// --- LÓGICA DE CAMBIO DE PESTAÑAS ---
+window.switchTab = function (e) {
+    const targetId = e.currentTarget.getAttribute('data-target');
+
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.display = 'none';
+    });
+
+    e.currentTarget.classList.add('active');
+    const activeTab = document.getElementById(targetId);
+    if (activeTab) {
+        activeTab.classList.add('active');
+        activeTab.style.display = 'block';
+    }
+};
+
+// --- GESTIÓN DE NOTIFICACIONES ---
+async function initPreferences(targetEmail, isAdminFrontend) {
     const msg = document.getElementById('msg-status');
     const btn = document.getElementById('btn-submit');
 
-    if (!currentUserEmail) {
-        msg.textContent = "No se detectó sesión activa.";
-        msg.className = 'txt-err';
-        btn.disabled = true;
-        return;
-    }
+    if (!targetEmail) return;
 
     try {
         const inputs = document.querySelectorAll('input[type="checkbox"]');
         inputs.forEach(i => i.disabled = true);
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
 
-        const response = await fetch(`${API_NOTI}?email=${encodeURIComponent(currentUserEmail)}`);
+        const separador = API_NOTI.includes('?') ? '&' : '?';
+        const response = await fetch(`${API_NOTI}${separador}target_email=${encodeURIComponent(targetEmail)}`);
         const data = await response.json();
 
         if (data.error) throw new Error(data.error);
 
         const form = document.getElementById('prefs-form');
-        if (form.notify_pedido_creado) form.notify_pedido_creado.checked = data.notify_pedido_creado == 1;
-        if (form.notify_cambio_estado) form.notify_cambio_estado.checked = data.notify_cambio_estado == 1;
-        if (form.notify_pedido_editado) form.notify_pedido_editado.checked = data.notify_pedido_editado == 1;
-        if (form.notify_pedido_entregado) form.notify_pedido_entregado.checked = data.notify_pedido_entregado == 1;
-        if (form.notify_doc_por_vencer) form.notify_doc_por_vencer.checked = data.notify_doc_por_vencer == 1;
-        if (form.notify_doc_vencido) form.notify_doc_vencido.checked = data.notify_doc_vencido == 1;
+        if (form) {
+            if (form.notify_pedido_creado) form.notify_pedido_creado.checked = data.notify_pedido_creado == 1;
+            if (form.notify_cambio_estado) form.notify_cambio_estado.checked = data.notify_cambio_estado == 1;
+            if (form.notify_pedido_editado) form.notify_pedido_editado.checked = data.notify_pedido_editado == 1;
+            if (form.notify_pedido_entregado) form.notify_pedido_entregado.checked = data.notify_pedido_entregado == 1;
+            if (form.notify_doc_por_vencer) form.notify_doc_por_vencer.checked = data.notify_doc_por_vencer == 1;
+            if (form.notify_doc_vencido) form.notify_doc_vencido.checked = data.notify_doc_vencido == 1;
+        }
 
-        // Bloquear campos si no es admin
-        if (!data.is_admin && !currentUserIsAdmin) {
-            const protectedItems = document.querySelectorAll('.pref-item[data-role="admin"]');
-            protectedItems.forEach(item => {
+        // Bloqueo visual de documentos para usuarios que no son Admin
+        const protectedItems = document.querySelectorAll('.pref-item[data-role="admin"]');
+        protectedItems.forEach(item => {
+            const chk = item.querySelector('input');
+            const lockBadge = item.querySelector('.lock-badge');
+
+            if (!isAdminFrontend) {
                 item.classList.add('admin-locked');
-                const chk = item.querySelector('input');
                 if (chk) chk.disabled = true;
-
-                const switchLabel = item.querySelector('.switch');
-                if (switchLabel) {
+                if (!lockBadge) {
                     const badge = document.createElement('div');
                     badge.className = 'lock-badge';
                     badge.innerHTML = '<i class="fa-solid fa-lock"></i> Admin';
-                    item.insertBefore(badge, switchLabel);
+                    const switchEl = item.querySelector('.switch');
+                    if (switchEl) item.insertBefore(badge, switchEl);
                 }
-            });
-        }
+            } else {
+                item.classList.remove('admin-locked');
+                if (chk) chk.disabled = false;
+                if (lockBadge) lockBadge.remove();
+            }
+        });
 
     } catch (error) {
-        msg.textContent = "Error de conexión BD.";
-        msg.className = 'txt-err';
+        if (msg) {
+            msg.textContent = "Error obteniendo preferencias.";
+            msg.className = 'txt-err';
+        }
         console.error(error);
     } finally {
         const availableInputs = document.querySelectorAll('.pref-item:not(.admin-locked) input');
         availableInputs.forEach(i => i.disabled = false);
-        btn.innerHTML = 'Guardar Preferencias';
+        if (btn) btn.innerHTML = 'Guardar Preferencias';
     }
 }
 
-async function savePreferences(e) {
+// Función que se activa cuando el Admin cambia el select
+window.cambiarUsuarioNoti = function () {
+    const selectNoti = document.getElementById('user-noti-select');
+    if (selectNoti) {
+        const emailSeleccionado = selectNoti.value;
+        initPreferences(emailSeleccionado, window.APP_USER.isAdmin);
+    }
+};
+
+window.savePreferences = async function (e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit');
     const msg = document.getElementById('msg-status');
     const form = e.target;
 
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
-    msg.className = '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
+    }
+    if (msg) msg.className = '';
+
+    const selectNoti = document.getElementById('user-noti-select');
+    const emailObjetivo = selectNoti && selectNoti.value ? selectNoti.value : window.APP_USER.email;
 
     const payload = {
-        email: currentUserEmail,
-        notify_pedido_creado: form.notify_pedido_creado?.checked || false,
-        notify_cambio_estado: form.notify_cambio_estado?.checked || false,
-        notify_pedido_editado: form.notify_pedido_editado?.checked || false,
-        notify_pedido_entregado: form.notify_pedido_entregado?.checked || false,
-        notify_doc_por_vencer: form.notify_doc_por_vencer?.checked || false,
-        notify_doc_vencido: form.notify_doc_vencido?.checked || false
+        target_email: emailObjetivo,
+        notify_pedido_creado: form.notify_pedido_creado?.checked ? 1 : 0,
+        notify_cambio_estado: form.notify_cambio_estado?.checked ? 1 : 0,
+        notify_pedido_editado: form.notify_pedido_editado?.checked ? 1 : 0,
+        notify_pedido_entregado: form.notify_pedido_entregado?.checked ? 1 : 0,
+        notify_doc_por_vencer: form.notify_doc_por_vencer?.checked ? 1 : 0,
+        notify_doc_vencido: form.notify_doc_vencido?.checked ? 1 : 0
     };
 
     try {
@@ -130,39 +172,83 @@ async function savePreferences(e) {
         const result = await response.json();
 
         if (result.success) {
-            msg.innerHTML = '<i class="fa-solid fa-check-circle"></i> Cambios guardados';
-            msg.className = 'txt-ok';
+            if (msg) {
+                msg.innerHTML = '<i class="fa-solid fa-check-circle"></i> Cambios guardados para ' + emailObjetivo;
+                msg.className = 'txt-ok';
+            }
         } else {
             throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
-        msg.textContent = "Error al guardar. Revisa tu conexión.";
-        msg.className = 'txt-err';
+        if (msg) {
+            msg.textContent = "Error al guardar. Revisa tu conexión.";
+            msg.className = 'txt-err';
+        }
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Guardar Preferencias';
-        setTimeout(() => { if (msg.classList.contains('txt-ok')) msg.className = ''; }, 3000);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Guardar Preferencias';
+        }
+        setTimeout(() => { if (msg && msg.classList.contains('txt-ok')) msg.className = ''; }, 3500);
     }
 }
 
-
 // --- LÓGICA DE ROLES DE ADMINISTRADOR ---
-async function cargarDataRoles() {
+async function cargarDataRoles(email) {
     try {
-        const r = await fetch(`${API_USUARIOS}?action=get_all_users_with_roles&admin_email=${encodeURIComponent(currentUserEmail)}`);
-        const data = await r.json();
+        const separador = API_USUARIOS.includes('?') ? '&' : '?';
+        const urlFetch = `${API_USUARIOS}${separador}action=get_all_users_with_roles&admin_email=${encodeURIComponent(email)}`;
+
+        const r = await fetch(urlFetch);
+        if (!r.ok) {
+            const errText = await r.text();
+            throw new Error(`HTTP ${r.status} (${r.statusText})`);
+        }
+
+        const text = await r.text(); // Obtenemos como texto primero por si hay un error de PHP colado
+
+        // Si el texto es nuestro mensaje de Debug, no intentes parsearlo como JSON
+        if (text.includes("PHP ve el email")) {
+            throw new Error("Modo Debug Activado. Mira arriba en la consola.");
+        }
+
+        const data = JSON.parse(text);
 
         if (data.status === 'error') throw new Error(data.message);
+
+        // 1. Dibujar tabla de permisos
         renderTablaRoles(data);
+
+        // 2. Alimentar el Selector de Notificaciones
+        const selectNoti = document.getElementById('user-noti-select');
+        if (selectNoti) {
+            selectNoti.innerHTML = `<option value="${window.APP_USER.email}">Mis Notificaciones (Yo)</option>`;
+            data.usuarios.forEach(user => {
+                if (user.email !== window.APP_USER.email) {
+                    selectNoti.innerHTML += `<option value="${user.email}">${user.nombre} ${user.apellido} (${user.email})</option>`;
+                }
+            });
+        }
+
     } catch (err) {
-        console.error(err);
-        document.getElementById('cuerpo-tabla-usuarios').innerHTML = `<tr><td style="padding: 20px; text-align: center; color: #e74c3c;">Error cargando permisos (Revisa la conexión).</td></tr>`;
+        console.error("Fallo detallado:", err);
+        const cuerpoTabla = document.getElementById('cuerpo-tabla-usuarios');
+        if (cuerpoTabla) {
+            cuerpoTabla.innerHTML = `
+            <tr>
+                <td style="padding: 20px; text-align: center; color: #e74c3c; font-weight: bold; background: #fef2f2;">
+                    🚨 Error Crítico: ${err.message}
+                </td>
+            </tr>`;
+        }
     }
 }
 
 function renderTablaRoles(data) {
     const header = document.getElementById('fila-cabecera-roles');
     const body = document.getElementById('cuerpo-tabla-usuarios');
+    if (!header || !body) return;
+
     body.innerHTML = '';
 
     if (header.children.length === 1) {
@@ -216,7 +302,8 @@ window.procesarCambioRol = async function (el) {
     row.style.opacity = '0.5';
 
     try {
-        const resp = await fetch(`${API_USUARIOS}?action=save_user_roles&admin_email=${encodeURIComponent(currentUserEmail)}`, {
+        const separador = API_USUARIOS.includes('?') ? '&' : '?';
+        const resp = await fetch(`${API_USUARIOS}${separador}action=save_user_roles&admin_email=${encodeURIComponent(window.APP_USER.email)}`, {
             method: 'POST',
             body: fd
         });
@@ -226,7 +313,7 @@ window.procesarCambioRol = async function (el) {
             row.style.backgroundColor = '#f0fff4';
             setTimeout(() => { row.style.backgroundColor = 'transparent'; }, 600);
         } else {
-            throw new Error(result.message || "Error");
+            throw new Error(result.message || "Error al procesar la solicitud.");
         }
     } catch (e) {
         alert("Error al guardar cambios de permiso.");

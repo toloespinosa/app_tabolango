@@ -72,86 +72,91 @@ function mi_tema_pro_setup() {
 add_action( 'after_setup_theme', 'mi_tema_pro_setup' );
 
 /**
- * API DE LOGIN NATIVO DE GOOGLE PARA TABOLANGO
- * Reemplaza a Nextend Social Login
+ * PROCESAR LOGIN DE GOOGLE Y VALIDAR AUTORIZACIÓN (100% BD)
  */
-add_action('wp_ajax_login_nativo_tabolango', 'procesar_login_google_nativo');
-add_action('wp_ajax_nopriv_login_nativo_tabolango', 'procesar_login_google_nativo');
+add_action('wp_ajax_login_nativo_tabolango', 'procesar_login_google_tabolango');
+add_action('wp_ajax_nopriv_login_nativo_tabolango', 'procesar_login_google_tabolango');
 
-function procesar_login_google_nativo() {
-    $token = isset($_POST['token']) ? $_POST['token'] : '';
-
-    if (empty($token)) {
-        wp_send_json(['status' => 'error', 'message' => 'Token no recibido']);
+function procesar_login_google_tabolango() {
+    $token = $_POST['token'] ?? '';
+    if (!$token) {
+        wp_send_json(['status' => 'error', 'message' => 'No se recibió el token de autenticación.']);
     }
 
-    // 1. Validar el token directamente con Google (Evita usar librerías pesadas)
-    $google_url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' . $token;
-    $response = wp_remote_get($google_url);
-
-    if (is_wp_error($response) || wp_remote_retrieve_response_code($response) != 200) {
-        wp_send_json(['status' => 'error', 'message' => 'Firma de Google inválida o expirada']);
+    // 1. Validar el Token directamente con los servidores de Google
+    $response = wp_remote_get("https://oauth2.googleapis.com/tokeninfo?id_token=" . $token);
+    
+    if (is_wp_error($response)) {
+        wp_send_json(['status' => 'error', 'message' => 'Error al comunicarse con Google.']);
     }
 
-    $payload = json_decode(wp_remote_retrieve_body($response), true);
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    
+    if (isset($body['error'])) {
+        wp_send_json(['status' => 'error', 'message' => 'Token de Google inválido o expirado.']);
+    }
 
-    // 2. Extraer datos del usuario
-    $email = strtolower($payload['email']);
-    $first_name = isset($payload['given_name']) ? $payload['given_name'] : '';
-    $last_name = isset($payload['family_name']) ? $payload['family_name'] : '';
-    $picture = isset($payload['picture']) ? $payload['picture'] : ''; // 🔥 LÍNEA NUEVA: Atrapamos la foto
-    $dominio = substr(strrchr($email, "@"), 1);
+    // 2. Extraer datos del usuario de Google
+    $email = strtolower(sanitize_email($body['email']));
+    $nombre = sanitize_text_field($body['given_name'] ?? '');
+    $apellido = sanitize_text_field($body['family_name'] ?? '');
+    $picture = sanitize_url($body['picture'] ?? '');
 
-    // 3. Lógica de Negocio: Verificar si existe el usuario
+    // 3. --- LÓGICA DE AUTORIZACIÓN (100% DEPENDIENTE DE LA BASE DE DATOS) ---
+    global $wpdb;
+    
+    // Buscamos si el usuario existe en la tabla y está activo (sin prefijar la BD)
+    $usuario_db = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM app_usuarios WHERE email = %s AND activo = 1", 
+        $email
+    ));
+
+    // Si NO está en la base de datos o está inactivo -> ¡Rechazado!
+    if (!$usuario_db) {
+        wp_send_json([
+            'status' => 'error', 
+            'message' => 'Tu correo ('.$email.') no está autorizado en el sistema.'
+        ]);
+    }
+
+    // 4. --- CREACIÓN O INICIO DE SESIÓN EN WORDPRESS ---
     $user = get_user_by('email', $email);
 
     if (!$user) {
-        // El usuario NO existe. ¿Es de @tabolango.cl?
-        if ($dominio === 'tabolango.cl') {
-            // Sí es del equipo. Creamos la cuenta en WordPress automáticamente.
-            $random_password = wp_generate_password(12, false);
-            $user_id = wp_create_user($email, $random_password, $email);
-            
-            if (is_wp_error($user_id)) {
-                wp_send_json(['status' => 'error', 'message' => 'Error al crear la cuenta interna']);
-            }
-
-            // Actualizar nombre y apellido
-            wp_update_user([
-                'ID' => $user_id,
-                'first_name' => $first_name,
-                'last_name' => $last_name
-            ]);
-            
-            $user = get_user_by('id', $user_id);
-        } else {
-            // NO es de Tabolango y NO existe. Lo echamos.
-            wp_send_json(['status' => 'error', 'message' => 'Tu correo no pertenece a @tabolango.cl y no tienes autorización previa.']);
+        // Creamos la cuenta interna dinámicamente
+        $random_password = wp_generate_password(12, false);
+        $username = sanitize_user(explode('@', $email)[0], true); 
+        
+        $user_id = wp_create_user($username, $random_password, $email);
+        
+        if (is_wp_error($user_id)) {
+            wp_send_json(['status' => 'error', 'message' => 'Error al crear la cuenta de sesión interna.']);
         }
+        
+        wp_update_user(['ID' => $user_id, 'first_name' => $nombre, 'last_name' => $apellido]);
+        $user = get_user_by('id', $user_id);
     }
 
-    // 4. Iniciar sesión forzada y segura en WordPress
+    // 5. Iniciar la sesión de WordPress automáticamente
     clean_user_cache($user->ID);
     wp_clear_auth_cookie();
     wp_set_current_user($user->ID);
-    wp_set_auth_cookie($user->ID, true); // true = recordar sesión
-    
-    // Disparamos la acción por si algún otro plugin necesita saber que alguien entró
+    wp_set_auth_cookie($user->ID, true); 
+    update_user_caches($user);
+
     do_action('wp_login', $user->user_login, $user);
-// 1. Guardar o actualizar la foto en la memoria rápida de WordPress
+
+    // 6. Guardar la foto en WordPress
     update_user_meta($user->ID, 'avatar_google', $picture); 
     
-    // 2. 🔥 NUEVO: Guardar la foto en tu Base de Datos externa (app_usuarios)
-    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
-    if ( empty( $app_db->error ) && !empty($picture) ) {
-        // Hacemos un UPDATE en tu tabla. 
-        // OJO: Asumo que la columna del correo se llama 'usuario_email' como en tu otra tabla. 
-        // Si se llama 'email', cámbialo en la línea de abajo.
-        $app_db->query( $app_db->prepare(
+    // 7. Actualizar la foto en tu tabla personalizada (Usando $wpdb de forma segura)
+    if (!empty($picture)) {
+        $wpdb->query($wpdb->prepare(
             "UPDATE app_usuarios SET foto_url = %s WHERE email = %s", 
             $picture, $email
         ));
     }
+
     wp_send_json(['status' => 'success', 'message' => 'Bienvenido']);
 }
 
@@ -160,7 +165,6 @@ function procesar_login_google_nativo() {
  */
 add_action( 'template_redirect', 'tabolango_forzar_login_global' );
 function tabolango_forzar_login_global() {
-    // 🔥 MODO DIOS: Ahora el servidor también reconoce '.local'
     $host = $_SERVER['HTTP_HOST'] ?? '';
     if (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false) {
         return; 
@@ -170,45 +174,93 @@ function tabolango_forzar_login_global() {
     wp_redirect( home_url( '/login/' ) );
     exit;
 }
+/**
+ * OBTENER EL ROL DEL USUARIO ACTUAL (COMPATIBLE CON TU WIDGET JS)
+ */
+function tabolango_get_user_role() {
+    // 1. MODO DIOS: Leer la simulación que viene de tu global.js
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, '.local') !== false);
+    
+    if ( $is_local && isset($_COOKIE['simular_rol_tabolango']) ) {
+        return (int) $_COOKIE['simular_rol_tabolango']; // PHP obedece a tu widget
+    }
 
+    // 2. FLUJO NORMAL EN PRODUCCIÓN (Desde la Base de Datos)
+    if ( ! is_user_logged_in() ) return 0;
+    
+    static $user_role = null; 
+    if ( $user_role !== null ) return $user_role;
+
+    global $wpdb;
+    $email = wp_get_current_user()->user_email;
+    $user_role = (int) $wpdb->get_var($wpdb->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s LIMIT 1", $email));
+    
+    return $user_role;
+}
+
+/**
+ * FUNCIÓN PARA BLOQUEAR PÁGINAS FÍSICAS (TOTALMENTE INTEGRADA AL DISEÑO)
+ */
+function tabolango_requerir_rol($roles_permitidos) {
+    $rol_actual = tabolango_get_user_role();
+    
+    if ( ! in_array($rol_actual, $roles_permitidos) ) {
+        // 1. Enviamos código 403 de acceso denegado (Buena práctica)
+        status_header(403);
+        
+        // 2. Cargamos tu header.php (fondo, navbar, contenedor principal)
+        get_header(); 
+        
+        // 3. Imprimimos el mensaje de error directamente en el main-content-wrapper
+        ?>
+        <div class="caja-blanca" style="text-align: center; max-width: 850px; width: 100%; padding: 50px 30px; margin: 0 auto;">
+                <i class="fa-solid fa-shield-halved" style="font-size: 70px; margin-bottom: 20px; color: #e74c3c;"></i>
+                <h2 style="font-size: 26px; font-weight: 900; margin-bottom: 15px; margin-top: 0; color: #333 !important;">Acceso Restringido</h2>
+                <p style="font-size: 15px; color: #666 !important; margin: 0 auto 35px auto; line-height: 1.6; font-weight: 500;">No tienes los privilegios necesarios para ver o modificar esta sección del sistema.</p>
+                
+                <a href="<?php echo home_url('/'); ?>" class="btn-volver-denegado" style="background: #E98C00; color: white !important; border: none; padding: 14px 35px; border-radius: 8px; font-weight: 800; font-size: 14px; cursor: pointer; text-decoration: none; text-transform: uppercase; display: inline-block; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                    <i class="fa-solid fa-house" style="margin-right:8px;"></i> Volver al Inicio
+                </a>
+            </div>
+        </div>
+        <?php
+        
+        // 4. Cargamos tu footer.php
+        get_footer(); 
+        
+        // 5. ABORTAMOS la ejecución
+        exit;
+    }
+}
 /**
  * INYECCIÓN DE ESTADO GLOBAL DE LA APP (Identity Bridge)
  */
 add_action('wp_head', 'inyectar_identidad_app', 5);
 function inyectar_identidad_app() {
     $host = $_SERVER['HTTP_HOST'] ?? '';
-    // 🔥 Le enseñamos al PHP qué es el entorno local exactamente igual que al JS
     $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
 
-    // 🔥 MODO DIOS: Inyectamos tu identidad global a todo el frontend
+    // MODO DIOS LOCAL
     if ($is_local) {
         echo "\n<script>
-            window.APP_USER_DATA = { 
-                email: 'jaespinosaa@gmail.com', 
-                rol_id: 1, 
-                isAdmin: true,
-                isEditor: true,
-                isConductor: false,
-                isVendedor: false
-            };
-            console.log('🛠️ MODO DIOS LOCAL ACTIVO | ADMIN GLOBAL');
+            window.APP_USER_DATA = { email: 'jaespinosaa@gmail.com', rol_id: 1, isAdmin: true, isEditor: true, isConductor: false, isVendedor: false };
+            console.log('🛠️ MODO DIOS LOCAL ACTIVO');
         </script>\n";
         return;
     }
 
-    // 🛡️ MODO PRODUCCIÓN: Lee la base de datos real
+    // MODO PRODUCCIÓN
     if (!is_user_logged_in()) {
         echo "\n<script>window.APP_USER_DATA = { email: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
         return;
     }
 
     $email = wp_get_current_user()->user_email;
-    $rol_id = 0; 
-    $app_db = new wpdb( APP_DB_USER, APP_DB_PASSWORD, APP_DB_NAME, APP_DB_HOST );
     
-    if ( empty( $app_db->error ) ) {
-        $rol_id = (int) $app_db->get_var($app_db->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s LIMIT 1", $email));
-    }
+    // Obtenemos el rol usando global $wpdb (Evita errores 500 por credenciales manuales)
+    global $wpdb;
+    $rol_id = (int) $wpdb->get_var($wpdb->prepare("SELECT rol_id FROM app_usuario_roles WHERE usuario_email = %s LIMIT 1", $email));
 
     $is_admin = ($rol_id === 1) ? 'true' : 'false';
     $is_editor = ($rol_id === 2) ? 'true' : 'false';
@@ -218,12 +270,5 @@ function inyectar_identidad_app() {
     echo "\n<script>window.APP_USER_DATA = { email: '{$email}', rol_id: {$rol_id}, isAdmin: {$is_admin}, isEditor: {$is_editor}, isConductor: {$is_conductor}, isVendedor: {$is_vendedor} };</script>\n";
 }
 
-
-
-
-/**
- * OCULTAR LA BARRA NEGRA DE WORDPRESS
- * Oculta la barra superior para todos en el frontend, manteniendo el diseño de la App limpio.
- */
 add_filter( 'show_admin_bar', '__return_false' );
 ?>

@@ -2,7 +2,7 @@
 /**
  * Template Name: Ingresar Pedido
  */
-
+tabolango_requerir_rol([1, 2, 4]);
 get_header(); 
 
 // Obtenemos el email del usuario actual de forma segura

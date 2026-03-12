@@ -70,6 +70,8 @@ function procesarProductosVisuales(productosRaw) {
     listaProductosMaster = Object.values(grupos);
 }
 
+// ====== FRAGMENTO 1: ENCONTRAR Y REEMPLAZAR LA FUNCION loadOrders ====== 
+
 async function loadOrders() {
     try {
         const userEmail = obtenerEmailLimpio();
@@ -84,15 +86,22 @@ async function loadOrders() {
             return;
         } else { grid.classList.remove('is-empty'); }
 
-        let rawRole = data[0].is_admin_user;
-        if (rawRole === true || rawRole === "true" || rawRole == 1 || rawRole === "1") rawRole = 1;
-        else if (rawRole == 2 || rawRole === "2") rawRole = 2;
-        else rawRole = 0;
+        // 🔥 OBTENER ROL INYECTADO DESDE PHP 🔥
+        const roleBridge = document.getElementById('session-rol-bridge');
+        const userRoleID = roleBridge ? parseInt(roleBridge.innerText.trim()) : 0;
 
-        // 🔥 AQUÍ CONECTAMOS EL MODO DIOS DEL GLOBAL.JS 🔥
-        const isAdmin = (window.APP_USER.isAdmin || rawRole === 1);
-        const isEditor = (window.APP_USER.isEditor || rawRole === 2);
-        const canEdit = (isAdmin || isEditor);
+        console.log(`🚦 TABOLANGO DEBUG -> Usuario: ${userEmail} | ROL ID: ${userRoleID}`);
+
+        // Asignación de Permisos Exactos:
+        const isAdmin = (userRoleID === 1);
+        const isEditor = (userRoleID === 2);
+        const isConductor = (userRoleID === 3);
+        const isVendedor = (userRoleID === 4);
+
+        // Permisos de Acciones
+        const canCreateGuide = (isAdmin || isEditor);
+        const canEditOrder = (isAdmin || isEditor || isVendedor);
+        const canSendWA = (isAdmin || isEditor || isVendedor);
 
         const ordersGrouped = data.reduce((acc, current) => {
             const id = current.id_pedido;
@@ -131,7 +140,7 @@ async function loadOrders() {
             const f = (order.fecha_despacho || '').split('-');
             const fechaFormateada = f.length === 3 ? `${f[2]}/${f[1]}/${f[0]}` : order.fecha_despacho;
 
-            // --- LOGICA VISUAL GUIA ---
+            // --- LÓGICA VISUAL GUÍA ---
             let bloqueGuia = '';
             let escudoGuia = '';
             let isGuiaSimulada = false;
@@ -144,19 +153,45 @@ async function loadOrders() {
 
             if (order.url_guia) {
                 let txtBoton = isGuiaSimulada ? "🚚 VER GUÍA (Borrador)" : `🚚 VER GUÍA N° ${order.numero_guia}`;
-                bloqueGuia = `<div class="upload-zone-small" style="border-style: solid; border-color: #3498db; color:#3498db; background:#f0f8ff;" onclick="abrirModal('${order.url_guia}')">${txtBoton}</div>${isAdmin ? `<button class="btn-x-delete" onclick="eliminarDoc('${order.id_pedido}', 'guia')">×</button>` : ''}`;
+                let btnEliminar = canCreateGuide ? `<button class="btn-x-delete" onclick="eliminarDoc('${order.id_pedido}', 'guia')">×</button>` : '';
+
+                bloqueGuia = `<div class="upload-zone-small" style="border-style: solid; border-color: #3498db; color:#3498db; background:#f0f8ff;" onclick="abrirModal('${order.url_guia}')">${txtBoton}</div>${btnEliminar}`;
                 escudoGuia = `<span class="factura-badge" style="background:#ebf5fb; color:#2980b9; border-color:#2980b9;">G: ${txtFolioGuia}</span>`;
-            } else if (canEdit) {
-                bloqueGuia = `<button onclick="event.stopPropagation(); abrirVistaPrevia('guia', '${order.id_pedido}')" style="width:100%; padding:10px; background:#E98C00; color:white; border:none; border-radius:8px; font-weight:800; font-size:11px; cursor:pointer; margin-bottom:5px; box-shadow:0 3px 0 #d35400;">🚚 GENERAR GUÍA DE DESPACHO</button>${isAdmin ? `<div style="text-align:center; font-size:9px; color:#999; margin-bottom:5px; cursor:pointer; text-decoration:underline;" onclick="document.getElementById('file-guia-${order.id_pedido}').click()">o subir manual</div>` : ''}<input type="file" id="file-guia-${order.id_pedido}" accept="image/*,application/pdf" style="display:none" onchange="subirGuia(this, '${order.id_pedido}')">`;
+            } else if (canCreateGuide) {
+                bloqueGuia = `<button onclick="event.stopPropagation(); abrirVistaPrevia('guia', '${order.id_pedido}')" style="width:100%; padding:10px; background:#E98C00; color:white; border:none; border-radius:8px; font-weight:800; font-size:11px; cursor:pointer; margin-bottom:5px; box-shadow:0 3px 0 #d35400;">🚚 GENERAR GUÍA DE DESPACHO</button>
+                ${isAdmin ? `<div style="text-align:center; font-size:9px; color:#999; margin-bottom:5px; cursor:pointer; text-decoration:underline;" onclick="document.getElementById('file-guia-${order.id_pedido}').click()">o subir manual</div>` : ''}
+                <input type="file" id="file-guia-${order.id_pedido}" accept="image/*,application/pdf" style="display:none" onchange="subirGuia(this, '${order.id_pedido}')">`;
             }
 
             let escudoFactura = order.numero_factura ? `<span class="factura-badge" style="background:#e8f6f3; color:#0F4B29; border-color:#0F4B29;">F: ${order.numero_factura}</span>` : '';
 
-            // --- LOGICA BOTÓN WHATSAPP ---
-            let waEnviado = order.whatsapp_enviado && order.whatsapp_enviado !== "0000-00-00 00:00:00" && order.whatsapp_enviado !== null;
-            let bgWa = waEnviado ? "#3498db" : "#25D366";
-            let shadowWa = waEnviado ? "#2980b9" : "#1da851";
-            let textWa = waEnviado ? "🔄 REENVIAR POR WHATSAPP" : "ENVIAR DETALLE";
+            // --- LÓGICA BOTÓN WHATSAPP Y EDICIÓN ---
+            let btnWhatsapp = '';
+            if (canSendWA) {
+                let waEnviado = order.whatsapp_enviado && order.whatsapp_enviado !== "0000-00-00 00:00:00" && order.whatsapp_enviado !== null;
+                let bgWa = waEnviado ? "#3498db" : "#25D366";
+                let shadowWa = waEnviado ? "#2980b9" : "#1da851";
+                let textWa = waEnviado ? "🔄 REENVIAR POR WHATSAPP" : "ENVIAR DETALLE";
+
+                btnWhatsapp = `
+                <button onclick="event.stopPropagation(); prepararEnvioWhatsapp('${order.id_pedido}')" style="width:100%; padding:12px; background:${bgWa}; color:white; border:none; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; margin-bottom:10px; margin-top:10px; box-shadow:0 3px 0 ${shadowWa}; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.885-.653-1.482-1.46-1.656-1.758-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.012c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"></path></svg>
+                    ${textWa}
+                </button>`;
+            }
+
+            let btnEdit = canEditOrder ? `<button class="btn-edit-order" onclick="event.stopPropagation(); abrirEditor('${order.id_pedido}')">✏️ EDITAR PEDIDO</button>` : '';
+
+            // --- LÓGICA DE PRECIO (CONDUCTOR) ---
+            let htmlPrecioTotal = isConductor
+                ? `<span class="order-total" style="color:#27ae60; font-size:15px; display:flex; align-items:center; gap:6px;">🚐 <span>A ENTREGAR</span></span>`
+                : `<span class="order-total">${formatCLP(order.total_acumulado)} <small style="font-size:11px; opacity:0.7;">+ IVA</small></span>`;
+
+            // 🔥 LÓGICA CLIC EN DETALLE (EVITAR APERTURA MODAL) 🔥
+            // Si es conductor, forzamos cursor por defecto y le quitamos la función 'verDetalleLista'.
+            let eventoDetalle = isConductor
+                ? `style="cursor:default;"`
+                : `onclick="event.stopPropagation(); verDetalleLista('${order.id_pedido}')" style="cursor:zoom-in;"`;
 
             grid.innerHTML += `
                 <div class="order-card" id="card-${order.id_pedido}">
@@ -178,7 +213,7 @@ async function loadOrders() {
                                 </div>
                                 <div class="order-body">
                                     <h3>${order.cliente}</h3>
-                                    <div class="products-list" onclick="event.stopPropagation(); verDetalleLista('${order.id_pedido}')" style="cursor:zoom-in;" onwheel="event.stopPropagation()" ontouchstart="event.stopPropagation()">
+                                    <div class="products-list" ${eventoDetalle} onwheel="event.stopPropagation()" ontouchstart="event.stopPropagation()">
                                         ${order.products.map(p => `
                                             <div class="product-item" style="border-left: 6px solid ${p.color};">
                                                 <div style="display:flex; align-items: center; flex:1; gap: 6px;">
@@ -197,7 +232,7 @@ async function loadOrders() {
                                     </div>
                                 </div>
                                 <div class="order-footer">
-                                    <span class="order-total">${formatCLP(order.total_acumulado)} <small style="font-size:11px; opacity:0.7;">+ IVA</small></span>
+                                    ${htmlPrecioTotal}
                                 </div>
                             </div>
                             <div class="trigger-flip-bar" onclick="flipCard(event, '${order.id_pedido}')"><span>Documentos / Gestión</span></div>
@@ -206,13 +241,8 @@ async function loadOrders() {
                             <div style="flex:1; overflow-y:auto;">
                                 <h4 style="margin:0 0 12px 0; font-size:14px; color:#333; text-transform:uppercase; font-weight:800; border-bottom: 1px solid #ddd; padding-bottom:5px;">Gestión de Pedido</h4>
                                 <div class="doc-container">${bloqueGuia}</div>
-                                
-                                <button onclick="event.stopPropagation(); prepararEnvioWhatsapp('${order.id_pedido}')" style="width:100%; padding:12px; background:${bgWa}; color:white; border:none; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; margin-bottom:10px; margin-top:10px; box-shadow:0 3px 0 ${shadowWa}; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.885-.653-1.482-1.46-1.656-1.758-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.012c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"></path></svg>
-                                    ${textWa}
-                                </button>
-                                
-                                ${canEdit ? `<button class="btn-edit-order" onclick="event.stopPropagation(); abrirEditor('${order.id_pedido}')">✏️ EDITAR PEDIDO</button>` : ''}
+                                ${btnWhatsapp}
+                                ${btnEdit}
                             </div>
                             <div class="trigger-flip-bar back-btn" onclick="flipCard(event, '${order.id_pedido}')"><span>Volver al Pedido</span></div>
                         </div>
@@ -220,6 +250,100 @@ async function loadOrders() {
                 </div>`;
         });
     } catch (err) { console.error(err); }
+}
+
+
+// ====== FRAGMENTO 2: ENCONTRAR Y REEMPLAZAR LA FUNCION verDetalleLista ====== 
+
+async function verDetalleLista(idPedido) {
+    const pedido = window.currentOrders[idPedido];
+    if (!pedido) return;
+
+    // 🔥 OBTENER ROL INYECTADO DESDE PHP 🔥
+    const roleBridge = document.getElementById('session-rol-bridge');
+    const userRoleID = roleBridge ? parseInt(roleBridge.innerText.trim()) : 0;
+    const isConductor = (userRoleID === 3);
+
+    const modal = document.getElementById('modal-detalle-pedido');
+    const body = document.getElementById('detalle-pedido-body');
+    const fmt = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 });
+
+    body.innerHTML = '<div style="text-align:center; padding:50px; color:#0F4B29; font-weight:bold;">Cargando información...</div>';
+    modal.style.display = 'flex';
+
+    let rutFinal = "No disponible";
+    try {
+        const sep = URL_DETALLE_CLIENTE.includes('?') ? '&' : '?';
+        const response = await fetch(`${URL_DETALLE_CLIENTE}${sep}id=${pedido.id_interno_cliente}`);
+        const data = await response.json();
+        if (data && data.perfil) { rutFinal = data.perfil.rut_cliente || data.perfil.id_cliente || "Pendiente"; }
+    } catch (e) { console.error(e); }
+
+    let totalNeto = 0;
+    const productosHTML = pedido.products.map(p => {
+        const sub = p.precio_t || (p.precio_u * p.cantidad);
+        totalNeto += sub;
+
+        // El conductor NO debe ver los precios Unitarios ni el subtotal
+        let htmlPrecioUnitario = isConductor ? '' : `<span style="color:#ddd">|</span> <span class="unit-price-tag">Unit: ${fmt.format(p.precio_u)}</span>`;
+        let htmlPrecioTotal = isConductor ? '' : `<div class="item-price-total">${fmt.format(sub)}</div>`;
+
+        return `
+        <div class="item-row">
+            <div class="item-info">
+                <span class="item-title">
+                    ${p.nombre} 
+                    ${p.variedad ? `<span style="font-weight:400; color:#666; font-size:12px; margin-left:5px;">(${p.variedad})</span>` : ''}
+                </span>
+                <div class="item-meta">
+                    <span class="meta-tag">Cant:</span> <span class="meta-val" style="color:#0F4B29; font-weight:bold;">${Math.round(p.cantidad)} ${p.unidad}</span>
+                    ${htmlPrecioUnitario}
+                </div>
+                <div style="font-size:11px; color:#999; margin-top:4px;">Calibre: ${p.calibre} • Formato: ${p.formato}</div>
+            </div>
+            ${htmlPrecioTotal}
+        </div>`;
+    }).join('');
+
+    const obsTexto = pedido.observacion || pedido.observaciones || '';
+    const observacionBlock = obsTexto ? `
+        <div style="padding: 15px 25px; background: #fffbf0; border-bottom: 1px solid #f0f0f0; border-top: 1px solid #f0f0f0;">
+            <div style="font-size: 11px; font-weight: 800; color: #E98C00; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">📝 Observaciones del Pedido</div>
+            <div style="font-size: 13px; color: #555; line-height: 1.5; font-style: italic;">"${obsTexto}"</div>
+        </div>
+    ` : '';
+
+    const iva = Math.round(totalNeto * 0.19);
+    const total = totalNeto + iva;
+
+    // Resumen del Footer también Condicionado
+    let footerResumenHtml = '';
+    if (isConductor) {
+        footerResumenHtml = `
+            <div class="resumen-total" style="justify-content:center; background:#e8f6f3; border: 1px solid #27ae60; padding:15px;">
+                <span class="label" style="color:#27ae60; display:flex; align-items:center; gap:8px;">🔒 VISTA DE RUTA / CONDUCTOR</span>
+            </div>`;
+    } else {
+        footerResumenHtml = `
+            <div class="resumen-row"><span>Subtotal Neto</span><span style="font-weight:700; color:#1a1a1a;">${fmt.format(totalNeto)}</span></div>
+            <div class="resumen-row"><span>IVA (19%)</span><span style="font-weight:700; color:#1a1a1a;">${fmt.format(iva)}</span></div>
+            <div class="resumen-total"><span class="label">Total Final</span><span class="value">${fmt.format(total)}</span></div>`;
+    }
+
+    body.innerHTML = `
+        <div class="detalle-header">
+            <h3>Detalle del Pedido</h3>
+            <div style="color:rgba(255,255,255,0.8); font-size:14px; font-weight:600; margin-top:4px;">${pedido.cliente}</div>
+            <div class="rut-container" onclick="copiarRutLimpio('${rutFinal}')">
+                <span class="rut-label">RUT:</span><span class="rut-value">${rutFinal}</span>
+            </div>
+        </div>
+        <div class="detalle-body" style="max-height: 40vh;">${productosHTML}</div>
+        ${observacionBlock}
+        <div class="detalle-footer">
+            ${footerResumenHtml}
+            <button onclick="cerrarDetalle()" class="btn-cerrar-block">Cerrar Detalle</button>
+        </div>`;
 }
 
 // --- FUNCIONES EDITOR DE PEDIDOS ---
@@ -548,75 +672,7 @@ function abrirModal(url) {
 function cerrarModal() { document.getElementById('modal-factura').style.display = 'none'; }
 function flipCard(event, id) { if (event) event.stopPropagation(); document.getElementById(`card-${id}`).classList.toggle('is-flipped'); }
 
-async function verDetalleLista(idPedido) {
-    const pedido = window.currentOrders[idPedido];
-    if (!pedido) return;
 
-    const modal = document.getElementById('modal-detalle-pedido');
-    const body = document.getElementById('detalle-pedido-body');
-    const fmt = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 });
-
-    body.innerHTML = '<div style="text-align:center; padding:50px; color:#0F4B29; font-weight:bold;">Cargando información...</div>';
-    modal.style.display = 'flex';
-
-    let rutFinal = "No disponible";
-    try {
-        const sep = URL_DETALLE_CLIENTE.includes('?') ? '&' : '?';
-        const response = await fetch(`${URL_DETALLE_CLIENTE}${sep}id=${pedido.id_interno_cliente}`);
-        const data = await response.json();
-        if (data && data.perfil) { rutFinal = data.perfil.rut_cliente || data.perfil.id_cliente || "Pendiente"; }
-    } catch (e) { console.error(e); }
-
-    let totalNeto = 0;
-    const productosHTML = pedido.products.map(p => {
-        const sub = p.precio_t || (p.precio_u * p.cantidad);
-        totalNeto += sub;
-        return `
-        <div class="item-row">
-            <div class="item-info">
-                <span class="item-title">
-                    ${p.nombre} 
-                    ${p.variedad ? `<span style="font-weight:400; color:#666; font-size:12px; margin-left:5px;">(${p.variedad})</span>` : ''}
-                </span>
-                <div class="item-meta">
-                    <span class="meta-tag">Cant:</span> <span class="meta-val">${Math.round(p.cantidad)} ${p.unidad}</span>
-                    <span style="color:#ddd">|</span>
-                    <span class="unit-price-tag">Unit: ${fmt.format(p.precio_u)}</span>
-                </div>
-                <div style="font-size:11px; color:#999; margin-top:4px;">Calibre: ${p.calibre} • Formato: ${p.formato}</div>
-            </div>
-            <div class="item-price-total">${fmt.format(sub)}</div>
-        </div>`;
-    }).join('');
-
-    const obsTexto = pedido.observacion || pedido.observaciones || '';
-    const observacionBlock = obsTexto ? `
-        <div style="padding: 15px 25px; background: #fffbf0; border-bottom: 1px solid #f0f0f0; border-top: 1px solid #f0f0f0;">
-            <div style="font-size: 11px; font-weight: 800; color: #E98C00; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">📝 Observaciones del Pedido</div>
-            <div style="font-size: 13px; color: #555; line-height: 1.5; font-style: italic;">"${obsTexto}"</div>
-        </div>
-    ` : '';
-
-    const iva = Math.round(totalNeto * 0.19);
-    const total = totalNeto + iva;
-
-    body.innerHTML = `
-        <div class="detalle-header">
-            <h3>Detalle del Pedido</h3>
-            <div style="color:rgba(255,255,255,0.8); font-size:14px; font-weight:600; margin-top:4px;">${pedido.cliente}</div>
-            <div class="rut-container" onclick="copiarRutLimpio('${rutFinal}')">
-                <span class="rut-label">RUT:</span><span class="rut-value">${rutFinal}</span>
-            </div>
-        </div>
-        <div class="detalle-body" style="max-height: 40vh;">${productosHTML}</div>
-        ${observacionBlock}
-        <div class="detalle-footer">
-            <div class="resumen-row"><span>Subtotal Neto</span><span style="font-weight:700; color:#1a1a1a;">${fmt.format(totalNeto)}</span></div>
-            <div class="resumen-row"><span>IVA (19%)</span><span style="font-weight:700; color:#1a1a1a;">${fmt.format(iva)}</span></div>
-            <div class="resumen-total"><span class="label">Total Final</span><span class="value">${fmt.format(total)}</span></div>
-            <button onclick="cerrarDetalle()" class="btn-cerrar-block">Cerrar Detalle</button>
-        </div>`;
-}
 function cerrarDetalle() { document.getElementById('modal-detalle-pedido').style.display = 'none'; }
 function copiarRutLimpio(rutOriginal) {
     let rutLimpio = rutOriginal.split('-')[0].replace(/\./g, '').trim();

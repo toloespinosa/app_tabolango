@@ -58,10 +58,7 @@ $google_client_id = "377569852818-k7p5cmhk6emmqnveb1ro3uo5vjpl63me.apps.googleus
     </div>
 
     <script>
-    // Esta función la llama Google automáticamente cuando el usuario elige su cuenta
     function procesarLoginNativoGoogle(response) {
-        // response.credential contiene un Token seguro (JWT)
-        
         Swal.fire({
             title: 'Autenticando...',
             text: 'Verificando credenciales',
@@ -69,7 +66,6 @@ $google_client_id = "377569852818-k7p5cmhk6emmqnveb1ro3uo5vjpl63me.apps.googleus
             didOpen: () => { Swal.showLoading(); }
         });
 
-        // Enviamos el token a nuestro propio backend de WordPress
         const formData = new FormData();
         formData.append('action', 'login_nativo_tabolango');
         formData.append('token', response.credential);
@@ -81,13 +77,60 @@ $google_client_id = "377569852818-k7p5cmhk6emmqnveb1ro3uo5vjpl63me.apps.googleus
         .then(res => res.json())
         .then(data => {
             if (data.status === 'success') {
-                window.location.href = '<?php echo home_url("/"); ?>'; // Redirigir al inicio
+                window.location.href = '<?php echo home_url("/"); ?>'; 
+            } 
+            // 🔥 LA NUEVA MAGIA: Si no está registrado y es externo
+            else if (data.status === 'not_registered') {
+                Swal.fire({
+                    title: 'Acceso Restringido',
+                    html: data.message + '<br><br>¿Deseas enviar una solicitud de acceso al administrador?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0F4B29',
+                    cancelButtonColor: '#e74c3c',
+                    confirmButtonText: 'Sí, solicitar acceso',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        ejecutarSolicitudAcceso(data.userData);
+                    }
+                });
             } else {
-                Swal.fire('Acceso Denegado', data.message, 'error');
+                // Mensajes de error normales (Ej: Cuenta inactiva)
+                Swal.fire('Atención', data.message, 'info');
             }
         })
         .catch(err => {
             Swal.fire('Error', 'Problema de conexión con el servidor', 'error');
+        });
+    }
+
+    // Función que envía los datos a la BD como inactivos
+    function ejecutarSolicitudAcceso(userData) {
+        Swal.fire({
+            title: 'Enviando solicitud...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        const reqData = new FormData();
+        reqData.append('action', 'solicitar_acceso_tabolango');
+        reqData.append('email', userData.email);
+        reqData.append('nombre', userData.nombre);
+        reqData.append('apellido', userData.apellido);
+        reqData.append('picture', userData.picture);
+
+        fetch('<?php echo admin_url("admin-ajax.php"); ?>', {
+            method: 'POST',
+            body: reqData
+        })
+        .then(res => res.json())
+        .then(resData => {
+            if (resData.status === 'success') {
+                Swal.fire('Solicitud Exitosa', resData.message, 'success');
+            } else {
+                Swal.fire('Error', resData.message, 'error');
+            }
         });
     }
     </script>

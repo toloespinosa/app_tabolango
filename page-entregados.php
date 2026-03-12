@@ -1,5 +1,6 @@
 <?php
 /* Template Name: Entregados */
+tabolango_requerir_rol([1, 2, 4]);
 get_header();
 ?>
 <div id="session-email-bridge" style="display:none !important;">[user_email_js]</div>

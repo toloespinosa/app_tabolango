@@ -1,14 +1,17 @@
 console.log("🚀 SISTEMA TABOLANGO: Cargando Globales...");
 
 // ==========================================================================
-// 1. UTILIDADES BÁSICAS
+// 1. UTILIDADES BÁSICAS (OPTIMIZADO PARA ERP)
 // ==========================================================================
 const isLocal = window.location.hostname.includes('.local') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// Ajuste dinámico de la base URL
-const BASE_URL = isLocal ? `${window.location.protocol}//${window.location.hostname}/wp-content/themes/Tabolango/inc` : 'https://tabolango.cl';
+// Si es local, usa tu ruta de desarrollo. 
+// Si es producción, ahora captura dinámicamente el dominio actual (erp.tabolango.cl)
+const BASE_URL = isLocal
+    ? `${window.location.protocol}//${window.location.hostname}/wp-content/themes/Tabolango/inc`
+    : `https://${window.location.hostname}/inc`; // Ajusta "/inc" según dónde guardes los PHP en tu repo de GitHub
 
-console.log(`📍 Entorno: ${isLocal ? 'LOCAL 💻' : 'PRODUCCIÓN ☁️'} (${window.location.protocol})`);
+console.log(`📍 Entorno: ${isLocal ? 'LOCAL 💻' : 'PRODUCCIÓN ☁️'} | API: ${BASE_URL}`);
 
 window.formatCLP = (v) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(v);
 window.formatearDinero = window.formatCLP;
@@ -41,21 +44,27 @@ if (isLocal) {
         // Cuando cambias el rol, lo guarda y recarga la página
         selector.addEventListener('change', (e) => {
             localStorage.setItem('simular_rol_tabolango', e.target.value);
+            // 🔥 EL PUENTE: Le enviamos el rol al PHP mediante una Cookie
+            document.cookie = "simular_rol_tabolango=" + e.target.value + "; path=/";
             location.reload();
         });
     });
 }
 
-// 🧠 CEREBRO DE IDENTIDAD: Interceptamos la variable global
+// 🧠 CEREBRO DE IDENTIDAD: Interceptamos la variable global de forma inteligente
 Object.defineProperty(window, 'APP_USER', {
     get: function () {
-        let baseUser = window.APP_USER_DATA || { email: "", rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };
+        // 1. Intentamos obtener el email real del bridge de WordPress (identidad real)
+        const bridge = document.getElementById('session-email-bridge');
+        const realEmail = bridge ? bridge.textContent.trim() : null;
 
-        // Si estamos en local, sobrescribimos los permisos con lo que diga el selector
+        let baseUser = window.APP_USER_DATA || { email: realEmail || "", rol_id: 0, isAdmin: false };
+
         if (isLocal) {
             const rolSimulado = parseInt(localStorage.getItem('simular_rol_tabolango') || "1");
             return {
-                email: baseUser.email || 'jaespinosaa@gmail.com', // Mantiene tu correo para que la API funcione
+                // PRIORIDAD: 1. Email real de WP | 2. Email de baseUser | 3. Fallback (TU correo real de admin)
+                email: realEmail || baseUser.email || 'jandres@tabolango.cl',
                 rol_id: rolSimulado,
                 isAdmin: rolSimulado === 1,
                 isEditor: rolSimulado === 2,
@@ -64,17 +73,29 @@ Object.defineProperty(window, 'APP_USER', {
             };
         }
 
-        // En Producción, entrega los datos reales intactos
         return baseUser;
     }
 });
-
 window.obtenerEmailLimpio = function () {
-    if (typeof window.APP_USER_DATA !== 'undefined' && window.APP_USER_DATA.email) {
+    // 1. Revisa la variable de sesión principal de tu App
+    if (typeof window.APP_USER !== 'undefined' && window.APP_USER && window.APP_USER.email) {
+        return window.APP_USER.email;
+    }
+
+    // 2. Revisa la variable secundaria (si la usas en otra parte de tu código)
+    if (typeof window.APP_USER_DATA !== 'undefined' && window.APP_USER_DATA && window.APP_USER_DATA.email) {
         return window.APP_USER_DATA.email;
     }
-    const b = document.getElementById('session-email-bridge');
-    return b ? b.innerText.trim() : '';
+
+    // 3. (Opcional) Si tu login guarda el correo en el navegador, lo saca de ahí
+    const localEmail = localStorage.getItem('app_user_email');
+    if (localEmail) {
+        return localEmail;
+    }
+
+    // Si tu App no tiene sesión iniciada, devuelve null. 
+    // SE ACABÓ EL DEPENDER DEL HTML DE WORDPRESS.
+    return null;
 };
 
 // ==========================================================================

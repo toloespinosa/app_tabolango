@@ -1,5 +1,6 @@
 <?php
 /* Template Name: Tus Autos */
+tabolango_requerir_rol([1, 2, 3, 4]);
 get_header();
 ?>
 

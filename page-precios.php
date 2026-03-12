@@ -1,5 +1,6 @@
 <?php
 /* Template Name: Precios */
+tabolango_requerir_rol([1, 2, 4]);
 get_header();
 ?>
 
