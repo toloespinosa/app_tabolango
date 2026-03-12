@@ -1,7 +1,7 @@
 // 🔥 FORZAMOS RUTAS A PRODUCCIÓN PARA VER DATOS REALES EN LOCAL 🔥
-const URL_API_LISTA = 'https://tabolango.cl/api_lista_facturas.php';
-const URL_API_NC = 'https://tabolango.cl/procesar_nota_credito.php';
-const URL_API_FOLIOS = 'https://tabolango.cl/api_gestion_folios.php';
+const URL_API_LISTA = window.getApi('api_lista_facturas.php');
+const URL_API_NC = window.getApi('procesar_nota_credito.php');
+const URL_API_FOLIOS = window.getApi('api_gestion_folios.php');
 
 // 🔥 VARIABLES PARA SCROLL INFINITO 🔥
 let offsetActual = 0;
