@@ -9,7 +9,7 @@ const isLocal = window.location.hostname.includes('.local') || window.location.h
 // Si es producción, ahora captura dinámicamente el dominio actual (erp.tabolango.cl)
 const BASE_URL = isLocal
     ? `${window.location.protocol}//${window.location.hostname}/wp-content/themes/Tabolango/inc`
-    : `https://${window.location.hostname}/inc`; // Ajusta "/inc" según dónde guardes los PHP en tu repo de GitHub
+    : `https://${window.location.hostname}/wp-content/themes/app_tabolango/inc`; // Ajusta "/inc" según dónde guardes los PHP en tu repo de GitHub
 
 console.log(`📍 Entorno: ${isLocal ? 'LOCAL 💻' : 'PRODUCCIÓN ☁️'} | API: ${BASE_URL}`);
 
