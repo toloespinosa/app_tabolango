@@ -76,10 +76,10 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
             $login_url = home_url( '/login/' );
             $avatar_url = $is_logged_in ? get_avatar_url( $current_user_bridge->ID ) : ''; 
 
-            // --- BUSCAR FOTO DIRECTO EN LA BASE DE DATOS EXTERNA ---
-            if ( $is_logged_in ) {
-                global $wpdb;
-                $foto_bd = $wpdb->get_var( $wpdb->prepare( "SELECT foto_url FROM app_usuarios WHERE email = %s", $current_user_bridge->user_email ) );
+           // --- BUSCAR FOTO DIRECTO EN LA BASE DE DATOS EXTERNA ---
+            if ( $is_logged_in && function_exists('tabolango_get_app_db') ) {
+                $app_db = tabolango_get_app_db();
+                $foto_bd = $app_db->get_var( $app_db->prepare( "SELECT foto_url FROM app_usuarios WHERE email = %s", $current_user_bridge->user_email ) );
                 if ( !empty( $foto_bd ) ) {
                     $avatar_url = $foto_bd;
                 }
