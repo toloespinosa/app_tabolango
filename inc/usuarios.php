@@ -1,18 +1,24 @@
 <?php
-// usuarios.php - VERSIÓN LIMPIA Y UNIFICADA
+// usuarios.php - VERSIÓN LIMPIA, UNIFICADA Y CORREGIDA
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 header("Content-Type: application/json; charset=UTF-8");
 
+// 1. Aislamiento de Buffers: Evita que WP ensucie el JSON
+ob_start();
+
 require_once 'auth.php'; // Trae $conn (tu BD) y $es_local automáticamente
 
-// 1. INTEGRACIÓN SEGURA CON WORDPRESS
+// 2. INTEGRACIÓN SEGURA CON WORDPRESS
 $wp_root = explode('wp-content', __FILE__)[0];
 if (file_exists($wp_root . 'wp-load.php')) {
     require_once $wp_root . 'wp-load.php';
 }
 
-// 2. VALIDACIÓN DE SESIÓN (SIMULADOR VS PRODUCCIÓN)
+// Limpiamos cualquier salida HTML/texto residual que haya soltado WordPress
+ob_clean();
+
+// 3. VALIDACIÓN DE SESIÓN (SIMULADOR VS PRODUCCIÓN)
 $email_seguro = '';
 $is_logged = function_exists('is_user_logged_in') && is_user_logged_in();
 
@@ -27,14 +33,12 @@ if (isset($es_local) && $es_local) {
     $email_seguro = trim(strtolower(wp_get_current_user()->user_email));
 }
 
-// 3. VALIDACIÓN ESTRICTA DE ADMINISTRADOR
+// 4. VALIDACIÓN ESTRICTA DE ADMINISTRADOR (Para poder ver la tabla)
 $es_admin_validado = false;
 
 if (isset($es_local) && $es_local) {
-    // Si estamos en local, el frontend ya verificó el rol del simulador, lo dejamos pasar.
     $es_admin_validado = true; 
 } else {
-    // En producción, consultamos la BD real (Solo ID 1 = Administrador)
     if (isset($conn) && !$conn->connect_error) {
         $stmt_check = $conn->prepare("SELECT r.id FROM app_roles r INNER JOIN app_usuario_roles ur ON r.id = ur.rol_id WHERE ur.usuario_email = ? AND r.id = 1");
         if ($stmt_check) {
@@ -52,12 +56,12 @@ if (!$es_admin_validado) {
     die(json_encode(["status" => "error", "message" => "No tienes permisos de administrador reales."]));
 }
 
-// 4. RUTAS Y ACCIONES
+// 5. RUTAS Y ACCIONES
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// --- ACCIÓN: OBTENER USUARIOS ---
 if ($action == 'get_all_users_with_roles') {
     
-    // Consulta agrupada compatible con LocalWP
     $sql = "SELECT u.email, u.nombre, u.apellido, 
             GROUP_CONCAT(r.id) as roles_ids
             FROM app_usuarios u
@@ -90,14 +94,13 @@ if ($action == 'get_all_users_with_roles') {
 
 // --- ACCIÓN: GUARDAR CAMBIOS ---
 if ($action == 'save_user_roles') {
-    // 1. Verificación de seguridad para escritura
-    // En local permitimos siempre (Modo Dios), en producción solo al Admin real
     $autorizado = false;
+    
     if (isset($es_local) && $es_local) {
         $autorizado = true;
     } else {
-        // Validación real contra BD en producción
-        $stmt_check_write = $conn_usuarios->prepare("SELECT r.id FROM app_roles r INNER JOIN app_usuario_roles ur ON r.id = ur.rol_id WHERE ur.usuario_email = ? AND r.id = 1");
+        // [!] CORREGIDO: Se usa $conn, NO $conn_usuarios
+        $stmt_check_write = $conn->prepare("SELECT r.id FROM app_roles r INNER JOIN app_usuario_roles ur ON r.id = ur.rol_id WHERE ur.usuario_email = ? AND r.id = 1");
         $stmt_check_write->bind_param("s", $email_seguro);
         $stmt_check_write->execute();
         if ($stmt_check_write->get_result()->fetch_assoc()) {
@@ -110,34 +113,39 @@ if ($action == 'save_user_roles') {
         die(json_encode(["status" => "error", "message" => "No tienes permisos para modificar roles."]));
     }
 
-    // 2. Proceso de guardado
-    $email_target = $_POST['email_target'];
+    $email_target = $_POST['email_target'] ?? '';
     $roles_ids = $_POST['roles_ids'] ?? [];
 
-    // Iniciamos una transacción para asegurar que no queden datos huérfanos
-    $conn_usuarios->begin_transaction();
+    if (empty($email_target)) {
+        die(json_encode(["status" => "error", "message" => "Correo objetivo no válido."]));
+    }
+
+    // [!] CORREGIDO: Iniciamos transacción con $conn
+    $conn->begin_transaction();
 
     try {
-        // Borramos roles actuales del usuario objetivo
-        $stmt_del = $conn_usuarios->prepare("DELETE FROM app_usuario_roles WHERE usuario_email = ?");
+        // Borramos roles actuales
+        $stmt_del = $conn->prepare("DELETE FROM app_usuario_roles WHERE usuario_email = ?");
         $stmt_del->bind_param("s", $email_target);
         $stmt_del->execute();
         $stmt_del->close();
 
-        // Insertamos los nuevos roles seleccionados
+        // Insertamos nuevos roles
         if (!empty($roles_ids)) {
-            $stmt_ins = $conn_usuarios->prepare("INSERT INTO app_usuario_roles (usuario_email, rol_id) VALUES (?, ?)");
+            $stmt_ins = $conn->prepare("INSERT INTO app_usuario_roles (usuario_email, rol_id) VALUES (?, ?)");
             foreach ($roles_ids as $rid) {
-                $stmt_ins->bind_param("si", $email_target, $rid);
+                // Forzamos que el ID del rol sea entero para evitar SQL Injection
+                $id_rol_limpio = intval($rid);
+                $stmt_ins->bind_param("si", $email_target, $id_rol_limpio);
                 $stmt_ins->execute();
             }
             $stmt_ins->close();
         }
 
-        $conn_usuarios->commit();
+        $conn->commit();
         echo json_encode(["status" => "success", "message" => "Roles actualizados correctamente."]);
     } catch (Exception $e) {
-        $conn_usuarios->rollback();
+        $conn->rollback();
         echo json_encode(["status" => "error", "message" => "Error en la transacción: " . $e->getMessage()]);
     }
     exit;
