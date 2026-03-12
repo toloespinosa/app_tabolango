@@ -1,59 +1,82 @@
 <?php
-/* Template Name: Productos / Precios */
-
-tabolango_requerir_rol([1, 2, 3, 4]);
+/* Template Name: Productos */
+tabolango_requerir_rol([1, 2, 4]); // Accesible para Admin, Editor y Vendedor
 get_header();
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matriz de Productos</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+<div class="tabolango-orders-container">
+    <div class="admin-header-box">
+        
+        <button id="btn-abrir-crear" onclick="abrirModalCrear()" class="btn-crear-dinamico">
+            <i class="fa-solid fa-plus"></i> CREAR PRODUCTO
+        </button>
 
-    <div style="display:none;" id="session-email-bridge">[user_email_js]</div>
-
-    <div id="contenedor-matriz" class="tabolango-admin-panel">
-        <div class="matriz-header">
-            <div class="titulo-seccion">
-                <h3><i class="fa-solid fa-money-bill-trend-up"></i> Matriz de Precios Tabolango</h3>
-                <p>Formato de visualización: CLP ($)</p>
+        <p class="header-subtitle">DIRECTORIO OFICIAL TABOLANGO SPA</p>
+        <h1 class="header-title">Gestión de Productos</h1>
+        
+        <div class="search-container-wrapper">
+            <div class="search-input-box">
+                <i class="fa fa-search search-icon"></i>
+                <input type="text" id="buscador" oninput="filtrarProductos()" placeholder="Buscar producto..." class="search-input">
+                <i class="fa-solid fa-circle-xmark clear-icon" id="btn-clear-search" onclick="limpiarBuscador()"></i>
             </div>
-            
-            <div class="prod-search-container" style="position:relative;">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="busc-prod" placeholder="Filtrar por nombre..." onkeyup="filtrarPrecios()">
+            <div id="admin-controls" style="display:none;">
+                <button id="btn-toggle-hidden" onclick="toggleOcultos()" class="btn-toggle-hidden">
+                    <i class="fa-solid fa-eye-slash"></i> MOSTRAR OCULTOS
+                </button>
             </div>
-        </div>
-
-        <div class="matriz-scroll" style="overflow-x:auto;">
-            <table class="precio-table-wp">
-                <thead>
-                    <tr>
-                        <th class="sticky-col">Producto | Calibre</th>
-                        <th>Costo</th>
-                        <th class="th-lista"><i class="fa-solid fa-star"></i> Precio Lista</th>
-                        <th>Gran Distribuidor (P1)</th>
-                        <th>Mayorista (P2)</th>
-                        <th class="col-highlight">V Norte (P4)</th>
-                        <th style="text-align:center;">Acción</th>
-                    </tr>
-                </thead>
-                <tbody id="body-matriz">
-                    <tr><td colspan="7" style="text-align:center; padding:50px;">Cargando datos maestros...</td></tr>
-                </tbody>
-            </table>
         </div>
     </div>
 
-    <script src="app.js"></script>
-</body>
-</html>
+    <div id="products-grid" class="orders-grid">
+        <div class="loading-catalog">
+            <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><br>Cargando catálogo...
+        </div>
+    </div>
+</div>
 
-<?php get_footer(); ?>
+<div id="modal-producto" class="modal-overlay custom-modal-producto">
+    <div class="modal-content">
+        
+        <div class="modal-header-gradient">
+            <span onclick="cerrarModal()" class="modal-close-btn">&times;</span>
+            <div id="emoji-preview" class="emoji-preview-box">📦</div>
+            <h2 class="modal-header-title">Nuevo Producto</h2>
+            <p class="modal-header-subtitle">Completa los detalles del catálogo</p>
+        </div>
+
+        <form id="form-nuevo-producto" onsubmit="guardarNuevoProducto(event)" class="modal-form">
+            <div class="form-grid">
+                <div class="form-row-flex">
+                    <div style="flex:1">
+                        <label class="lbl-form">Icono</label>
+                        <input type="text" name="icono" class="inp-form text-center txt-large" placeholder="📦" maxlength="2" oninput="document.getElementById('emoji-preview').innerText = this.value || '📦'">
+                    </div>
+                    <div style="flex:3">
+                        <label class="lbl-form">Nombre del Producto</label>
+                        <input type="text" name="producto" required placeholder="Ej: Tomate" class="inp-form">
+                    </div>
+                </div>
+
+                <div class="form-row-flex">
+                    <div style="flex:1">
+                        <label class="lbl-form">Variedad</label>
+                        <input type="text" name="variedad" placeholder="Ej: Larga Vida" class="inp-form">
+                    </div>
+                    <div style="flex:1">
+                        <label class="lbl-form">Formato</label>
+                        <input type="text" name="formato" placeholder="Ej: Malla" class="inp-form">
+                    </div>
+                </div>
+
+                <div class="form-row-flex-small">
+                    <div style="flex:1">
+                        <label class="lbl-form">Unidad</label>
+                        <input type="text" name="unidad" placeholder="Kg" required class="inp-form">
+                    </div>
+                    <div style="flex:1">
+                        <label class="lbl-form">Kg x Und</label>
+                        <input type="number" step="0.1" name="kg_por_unidad" value="1" required class="inp-form">
+                    </div>
+                    <div style="flex:1">
+                        <label class="lbl-form">Cal

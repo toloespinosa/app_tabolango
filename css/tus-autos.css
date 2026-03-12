@@ -1,0 +1,436 @@
+/* Variables específicas del módulo */
+:root {
+    --primary: #0F4B29;
+    --accent: #27ae60;
+    --danger: #e74c3c;
+    --warning: #f39c12;
+    --card-bg: #ffffff;
+    --text-dark: #333333;
+}
+
+/* Controles Admin */
+#admin-controls {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.admin-badge {
+    background: #fff;
+    padding: 10px 25px;
+    border-radius: 50px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid #e2e8f0;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--primary);
+}
+
+input:checked+.slider:before {
+    transform: translateX(16px);
+}
+
+/* Botón Agregar */
+.btn-add {
+    background: var(--text-dark);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: 0.2s;
+}
+
+.btn-add:hover {
+    background: #000;
+    transform: translateY(-2px);
+}
+
+/* Grid */
+.autos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 25px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* Tarjeta */
+.card-auto {
+    background: var(--card-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #eee;
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.card-auto:hover {
+    transform: translateY(-3px);
+}
+
+.card-header {
+    height: 130px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    background: #f8fafc;
+    position: relative;
+    padding-top: 15px;
+    box-sizing: border-box;
+}
+
+.card-header img {
+    max-width: 85%;
+    max-height: 90px;
+    object-fit: contain;
+    margin-bottom: 20px;
+}
+
+/* Patente Mascarada */
+.patente-badge {
+    position: absolute;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 15px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 1.2em;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.card-body {
+    padding: 25px 20px 20px 20px;
+    text-align: center;
+}
+
+.info-main {
+    font-weight: 800;
+    font-size: 1.1em;
+    margin-bottom: 5px;
+    color: var(--text-dark);
+}
+
+.info-sub {
+    color: #64748b;
+    font-size: 0.9em;
+    margin-bottom: 20px;
+}
+
+/* Semáforos */
+.status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.status-item {
+    text-align: center;
+    background: #fff;
+    padding: 10px 4px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: 0.2s;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-item:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: scale(1.02);
+}
+
+.status-item i {
+    font-size: 1.2em;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.status-item small {
+    display: block;
+    font-size: 0.65em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: #94a3b8;
+    line-height: 1.2;
+}
+
+.status-item span.estado-texto {
+    font-size: 0.7em;
+    font-weight: 700;
+    display: block;
+    margin-top: 2px;
+}
+
+.status-item span.fecha-mini {
+    font-size: 0.6em;
+    font-weight: 500;
+    color: #64748b;
+    margin-top: 2px;
+    letter-spacing: -0.5px;
+}
+
+/* Colores */
+.color-ok {
+    color: var(--accent);
+}
+
+.color-warn {
+    color: var(--warning);
+}
+
+.color-err {
+    color: var(--danger);
+}
+
+.bg-ok {
+    background-color: var(--accent);
+}
+
+.bg-warn {
+    background-color: var(--warning);
+}
+
+.bg-err {
+    background-color: var(--danger);
+}
+
+/* Acciones Admin */
+.admin-actions {
+    display: none;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.btn-mini {
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: 0.2s;
+}
+
+.btn-mini:hover {
+    opacity: 0.8;
+}
+
+.btn-edit {
+    background: #e2e8f0;
+    color: var(--text-dark);
+}
+
+.btn-user {
+    background: var(--primary);
+    color: white;
+}
+
+/* Modales Personalizados de este módulo */
+.custom-modal-autos {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+}
+
+.custom-modal-autos .modal {
+    background: white;
+    width: 95%;
+    max-width: 450px;
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.5em;
+    cursor: pointer;
+    color: #cbd5e1;
+    transition: 0.2s;
+}
+
+.close-modal:hover {
+    color: var(--danger);
+}
+
+.checkbox-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: 0.2s;
+}
+
+.checkbox-item:hover {
+    background: #f8fafc;
+}
+
+.checkbox-item:last-child {
+    border-bottom: none;
+}
+
+.checkbox-item input {
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+    accent-color: var(--primary);
+}
+
+/* Inputs Formulario */
+.form-row {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.form-row label {
+    display: block;
+    font-size: 0.8em;
+    font-weight: 700;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.form-row input[type="date"],
+.form-row input[type="file"],
+.form-row input[type="text"],
+.form-row select {
+    width: 100%;
+    padding: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.form-row input[readonly] {
+    background-color: #f1f5f9 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed;
+}
+
+.btn-full {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    background: var(--primary);
+    color: white;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-full:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}

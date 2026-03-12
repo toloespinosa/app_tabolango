@@ -1,48 +1,26 @@
 <?php
-require_once 'auth.php';
-ini_set('display_errors', 0); 
-error_reporting(E_ALL);
+// inc/api_autos.php
+require_once 'auth.php'; // Inyecta $conn, $email_auth y $rol_final
 
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-
-// Conexión
-$servername = "localhost";
-$username = "tabolang_app";
-$password = 'm{Hpj.?IZL$Kz${S'; 
-$dbname = "tabolang_pedidos";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-$conn->set_charset("utf8mb4");
-
-if ($conn->connect_error) { die(json_encode(["status"=>"error"])); }
-
-$user_email = isset($_GET['email']) ? strtolower(trim($_GET['email'])) : '';
-
-if (empty($user_email)) {
-    echo json_encode(["autos" => []]);
+// 1. Verificación de Identidad. El email ahora lo manda JS y auth.php lo atrapa.
+if (empty($email_auth)) {
+    echo json_encode(["autos" => [], "is_admin" => false, "message" => "Sesión no detectada"]);
     exit;
 }
 
-// 1. Verificar si es Admin (Rol ID 1)
-$isAdmin = false;
-$stmtRole = $conn->prepare("SELECT 1 FROM app_usuario_roles WHERE usuario_email = ? AND rol_id = 1");
-$stmtRole->bind_param("s", $user_email);
-$stmtRole->execute();
-if ($stmtRole->get_result()->num_rows > 0) {
-    $isAdmin = true;
-}
+// 2. Definir privilegios: Rol 1 (Admin) o 2 (Editor) pueden gestionar la flota
+$is_admin_or_editor = ($rol_final === 1 || $rol_final === 2);
 
 try {
-    // 2. Actualizar estados vencidos automáticamente (mantenimiento)
+    // 3. Mantenimiento: Actualizar semáforos de documentos vencidos en tiempo real
     $conn->query("UPDATE vehiculos SET 
         estado_permiso = IF(venc_permiso < CURRENT_DATE, 0, estado_permiso),
         estado_soap = IF(venc_soap < CURRENT_DATE, 0, estado_soap),
         estado_revision = IF(venc_revision < CURRENT_DATE, 0, estado_revision)");
 
-    // 3. Consultas Diferenciadas
-    if ($isAdmin) {
-        // ADMIN: Ve TODO y necesita saber quiénes son los conductores (GROUP_CONCAT)
+    // 4. Consultas Inteligentes basadas en Rol
+    if ($is_admin_or_editor) {
+        // ADMIN / EDITOR: Ven toda la flota y un array de quién la conduce
         $sql = "SELECT v.*, 
                 GROUP_CONCAT(vu.user_email) as conductores_asignados 
                 FROM vehiculos v
@@ -50,14 +28,13 @@ try {
                 GROUP BY v.patente";
         $stmt = $conn->prepare($sql);
     } else {
-        // CONDUCTOR: Solo ve sus autos asignados
-        // Nota: No necesitamos el GROUP_CONCAT aquí, pero lo mantenemos null para consistencia si se requiere
+        // CONDUCTOR: Solo ve la flota donde él esté registrado en 'vehiculo_usuarios'
         $sql = "SELECT v.*, NULL as conductores_asignados 
                 FROM vehiculos v
                 INNER JOIN vehiculo_usuarios vu ON v.patente = vu.patente_vehiculo
                 WHERE vu.user_email = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $user_email);
+        $stmt->bind_param("s", $email_auth);
     }
 
     $stmt->execute();
@@ -65,8 +42,8 @@ try {
 
     $autos = [];
     while ($row = $result->fetch_assoc()) {
-        // Convertir string de conductores en array para JS
-        if(isset($row['conductores_asignados']) && $row['conductores_asignados']) {
+        // Parsear el string de MySQL a un Array puro de JS para los checkboxes
+        if(!empty($row['conductores_asignados'])) {
             $row['lista_conductores'] = explode(',', $row['conductores_asignados']);
         } else {
             $row['lista_conductores'] = [];
@@ -74,9 +51,14 @@ try {
         $autos[] = $row;
     }
 
-    echo json_encode(["autos" => $autos, "is_admin" => $isAdmin]);
+    // Le devolvemos 'is_admin' al JS para que dibuje o esconda los botones de Editar
+    echo json_encode([
+        "autos" => $autos, 
+        "is_admin" => $is_admin_or_editor
+    ]);
 
 } catch (Exception $e) {
-    echo json_encode(["error" => $e->getMessage()]);
+    http_response_code(500);
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
 ?>
