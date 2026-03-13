@@ -386,3 +386,43 @@ div:where(.swal2-container) input.swal2-input {
     max-height: 600px;
     /* Limita la altura para que el scroll se active por dentro */
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .dash-header {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+    .btn-refresh {
+        width: 100%;
+        justify-content: center;
+    }
+    .nav-tabs {
+        flex-direction: column;
+        width: 100%;
+        border-bottom: none;
+    }
+    .tab-link {
+        width: 100%;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 0;
+    }
+    .tab-link.active {
+        border-bottom: 3px solid #0f4b29;
+    }
+    .folios-grid {
+        grid-template-columns: 1fr !important;
+    }
+    #premium-dashboard {
+        padding: 20px !important;
+    }
+}
+@media (max-width: 480px) {
+    #premium-dashboard {
+        padding: 15px !important;
+    }
+    .dash-title {
+        font-size: 20px !important;
+    }
+}

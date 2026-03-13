@@ -190,6 +190,7 @@
      box-sizing: border-box !important;
      /* Crucial para que el padding no sume ancho */
      -webkit-appearance: none;
+     appearance: none;
      /* Quita estilos por defecto de iOS */
      min-height: 48px;
      /* Alinea con el disparador de cliente */
@@ -460,3 +461,63 @@
          transform: translateY(0);
      }
  }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    /* Asegurar Modales 95% y Padding 20px */
+    .m-card {
+        width: 95% !important;
+        padding: 20px !important;
+    }
+    .modal-grid-content {
+        width: 95% !important;
+        max-width: 100% !important;
+        padding: 20px !important;
+        border-radius: 16px !important;
+        height: 85vh !important;
+        overflow-y: auto !important;
+    }
+    .grid-container {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Flexbox en filas de formularios (apretados -> columna) */
+    .m-section-top {
+        flex-direction: column;
+    }
+    .m-section-top .m-group {
+        width: 100%;
+        min-width: 100%;
+    }
+    .m-fila-controles {
+        flex-direction: column;
+        width: 100%;
+    }
+    .m-fila-controles button {
+        width: 100% !important;
+        margin-bottom: 5px;
+    }
+    
+    /* Botones de acción 100% */
+    .m-btn-submit, .btn-volver-modal, .m-btn-action {
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .m-card {
+        padding: 15px !important;
+    }
+    .m-header h2 {
+        font-size: 20px !important;
+    }
+    .modal-grid-content {
+        padding: 15px !important;
+    }
+    .header-top h3 {
+        font-size: 16px !important;
+    }
+    #total_pedido_display {
+        font-size: 26px !important;
+    }
+}

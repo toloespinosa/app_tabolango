@@ -1071,3 +1071,44 @@
 .swal-btn-rojo:hover {
     background-color: #c0392b !important;
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .orders-grid, .input-grid-2 {
+        grid-template-columns: 1fr !important;
+    }
+    .admin-input-row, .order-header {
+        flex-direction: column;
+        width: 100%;
+    }
+    .m-card, .modal-content, .detalle-tabla-content {
+        width: 95% !important;
+        padding: 20px !important;
+        max-width: 100% !important;
+    }
+    .products-list, .detalle-body {
+        overflow-y: auto !important;
+    }
+    .form-title {
+        font-size: 22px !important;
+        margin-bottom: 20px;
+    }
+    .order-status-label {
+        width: 100%;
+    }
+    .btn-edit-order, .btn-save-admin, .trigger-flip-bar {
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .m-card, .modal-content, .detalle-tabla-content {
+        padding: 15px !important;
+    }
+    .order-body h3 {
+        font-size: 17px !important;
+    }
+    .form-title {
+        font-size: 18px !important;
+    }
+}

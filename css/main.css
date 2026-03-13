@@ -667,3 +667,58 @@ select {
 }
 
 /* #endregion */
+
+/* --- MOBILE RESPONSIVENESS (max-width: 768px & 480px) --- */
+@media (max-width: 768px) {
+    /* Typografía Títulos - Reducción suave */
+    h1 { font-size: 24px !important; }
+    h2 { font-size: 22px !important; }
+    h3 { font-size: 20px !important; }
+    
+    /* Cajas y Contenedores Principales */
+    .caja-blanca {
+        padding: 20px !important;
+    }
+    .tabolango-dashboard {
+        padding: 20px 15px !important;
+    }
+    
+    /* Header - Asegurar que no se rompa */
+    .header-container {
+        flex-direction: column;
+        gap: 15px;
+        padding-top: 15px;
+        align-items: center;
+    }
+    .header-left, .header-center, .header-right {
+        flex: none;
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+    
+    /* Grillas a 1 columna */
+    .actions-grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Ajustes bienvenida */
+    .welcome-text h1 {
+        font-size: 26px !important;
+    }
+    
+    /* Botones y User Profile dropdown */
+    .user-dropdown-menu {
+        right: 50%;
+        transform: translateX(50%);
+        width: 90%;
+        top: 65px;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Padding más reducido en 480px */
+    .caja-blanca {
+        padding: 15px !important;
+    }
+}

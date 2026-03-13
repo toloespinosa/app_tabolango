@@ -229,12 +229,34 @@
     .kpi-grid,
     .charts-main-grid,
     .charts-secondary-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
 
     .stats-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
+    }
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .stats-wrapper {
+        padding: 20px !important;
+    }
+    .kpi-card, .chart-box {
+        padding: 20px !important;
+    }
+    .stats-header h1 {
+        font-size: 24px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-wrapper {
+        padding: 15px !important;
+    }
+    .kpi-card, .chart-box {
+        padding: 15px !important;
     }
 }

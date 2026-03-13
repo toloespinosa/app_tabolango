@@ -362,3 +362,35 @@ input:checked+.slider:before {
 #panel-admin-roles {
     width: 100%;
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .ajustes-container {
+        padding: 20px 15px !important;
+    }
+    .config-card {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .config-header {
+        padding: 20px !important;
+    }
+    .config-body {
+        padding: 10px 20px 20px 20px !important;
+    }
+    .ajustes-tabs-nav {
+        flex-direction: column;
+        width: 100%;
+    }
+    .tab-btn {
+        width: 100%;
+    }
+}
+@media (max-width: 480px) {
+    .ajustes-container {
+        padding: 15px !important;
+    }
+    .config-header h2 {
+        font-size: 20px !important;
+    }
+}

@@ -72,3 +72,26 @@
      width: 100% !important;
      max-width: 250px !important;
  }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .login-wrapper {
+        padding-top: 60px;
+    }
+    .login-box {
+        padding: 20px 15px !important;
+        width: 95% !important;
+    }
+    .login-box h2 {
+        font-size: 22px !important;
+    }
+    .login-box p {
+        font-size: 13px !important;
+        margin-bottom: 20px;
+    }
+}
+@media (max-width: 480px) {
+    .login-wrapper {
+        padding-top: 40px;
+    }
+}

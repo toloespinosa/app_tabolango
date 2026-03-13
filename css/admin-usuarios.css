@@ -477,3 +477,28 @@ body.modal-abierto {
         grid-template-columns: 1fr;
     }
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .admin-panel {
+        padding: 20px 15px !important;
+    }
+    .admin-header-box {
+        padding: 20px !important;
+    }
+    .main-title {
+        font-size: 24px !important;
+    }
+    .sidebar {
+        width: 100% !important;
+        transform: translateX(100%);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+}
+@media (max-width: 480px) {
+    .admin-panel {
+        padding: 15px !important;
+    }
+}
