@@ -28,7 +28,7 @@ get_header();
     </div>
 
 <div id="modal-vehiculo" class="modal-overlay custom-modal-autos">
-    <div class="modal">
+    <div class="modal-flota-box">
         <span class="close-modal" onclick="cerrarModalAuto('modal-vehiculo')">&times;</span>
         <h3 style="margin-top:0" id="modal-title"><i class="fa-solid fa-car"></i> Vehículo</h3>
         <form id="form-vehiculo" onsubmit="submitCarForm(event)">
@@ -89,7 +89,7 @@ get_header();
 </div>
 
 <div id="modal-conductores" class="modal-overlay custom-modal-autos">
-    <div class="modal">
+    <div class="modal-flota-box">
         <span class="close-modal" onclick="cerrarModalAuto('modal-conductores')">&times;</span>
         <h3 style="margin-top:0"><i class="fa-solid fa-users"></i> Asignar Conductores</h3>
         <form id="form-vincular" onsubmit="submitLinkUser(event)">

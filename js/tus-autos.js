@@ -67,8 +67,10 @@ async function cargarDatos() {
         let usersData = null;
         let canEdit = isAppAdmin || isAppEditor;
 
-        if (isAppAdmin) {
+        // Si tiene permiso de editar, le cargamos los controles y la lista de conductores
+        if (canEdit) {
             document.getElementById('admin-controls').style.display = 'flex';
+            document.getElementById('btn-add-auto').style.display = 'flex';
 
             // Traemos usuarios
             const urlUsers = window.getApi('usuarios.php') + '&action=get_all_users_with_roles';
@@ -78,11 +80,6 @@ async function cargarDatos() {
                 // Filtrar conductores (Rol 3)
                 globalUsers = usersData.usuarios.filter(u => u.roles_ids.some(r => String(r).trim() == '3'));
             }
-        }
-
-        // Mostrar botón si tiene permiso
-        if (canEdit) {
-            document.getElementById('btn-add-auto').style.display = 'flex';
         }
 
         renderAutos(autosRes.autos || [], canEdit);
@@ -111,7 +108,9 @@ function renderAutos(autos, canEdit) {
         const txtRev = dRev < 0 ? 'Vencido' : (dRev < 30 ? dRev + ' días' : 'Vigente');
 
         const bgPatente = getWorstStatusBg(dPermiso, dSoap, dRev);
-        const autoJson = JSON.stringify(auto).replace(/"/g, '&quot;');
+
+        // EMPAQUETADO SEGURO: Evita que comillas o saltos de línea rompan el HTML
+        const autoJsonEncoded = encodeURIComponent(JSON.stringify(auto));
 
         // Optimizado para Swal.fire en caso de no haber PDF
         const docHandler = (url) => url ? `window.open('${url}', '_blank')` : `Swal.fire({...window.swalConfig, title: 'No Disponible', text: 'El documento no ha sido subido.', icon: 'info'})`;
@@ -122,10 +121,10 @@ function renderAutos(autos, canEdit) {
         if (canEdit) {
             adminButtons = `
             <div class="admin-actions">
-                <button class="btn-mini btn-edit" onclick="openEditModal('${autoJson}')">
+                <button class="btn-mini btn-edit" onclick="openEditModal('${autoJsonEncoded}')">
                     <i class="fa-solid fa-pen"></i> Editar
                 </button>
-                <button class="btn-mini btn-user" onclick="openDriverModal('${auto.patente}', '${autoJson}')">
+                <button class="btn-mini btn-user" onclick="openDriverModal('${auto.patente}', '${autoJsonEncoded}')">
                     <i class="fa-solid fa-user-gear"></i> Asignar
                 </button>
             </div>`;
@@ -195,36 +194,38 @@ window.openNewModal = function () {
     document.getElementById('modal-vehiculo').style.display = 'flex';
 }
 
-// --- MODO EDITAR ---
-window.openEditModal = function (json) {
-    const a = JSON.parse(json);
+// --- MODO EDITAR (Desempaqueta el JSON seguro) ---
+window.openEditModal = function (jsonEncoded) {
+    const a = JSON.parse(decodeURIComponent(jsonEncoded));
     document.getElementById('modal-title').innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Vehículo';
 
     const pInput = document.getElementById('input-patente');
     pInput.value = a.patente;
     pInput.readOnly = true;
 
-    document.getElementById('input-marca').value = a.marca;
-    document.getElementById('input-modelo').value = a.modelo;
-    document.getElementById('input-tipo').value = a.tipo_vehiculo;
-    document.getElementById('input-clase').value = a.clase_licencia;
+    document.getElementById('input-marca').value = a.marca || '';
+    document.getElementById('input-modelo').value = a.modelo || '';
+    document.getElementById('input-tipo').value = a.tipo_vehiculo || '';
+    document.getElementById('input-clase').value = a.clase_licencia || '';
 
-    document.getElementById('date-permiso').value = a.venc_permiso;
-    document.getElementById('date-soap').value = a.venc_soap;
-    document.getElementById('date-revision').value = a.venc_revision;
+    // Manejo de Fechas Vacías (Evita advertencias en consola)
+    document.getElementById('date-permiso').value = (a.venc_permiso && a.venc_permiso !== '0000-00-00') ? a.venc_permiso : '';
+    document.getElementById('date-soap').value = (a.venc_soap && a.venc_soap !== '0000-00-00') ? a.venc_soap : '';
+    document.getElementById('date-revision').value = (a.venc_revision && a.venc_revision !== '0000-00-00') ? a.venc_revision : '';
 
     document.getElementById('modal-vehiculo').style.display = 'flex';
 }
 
-window.openDriverModal = function (patente, json) {
-    const a = JSON.parse(json);
+// --- MODO ASIGNAR CONDUCTOR ---
+window.openDriverModal = function (patente, jsonEncoded) {
+    const a = JSON.parse(decodeURIComponent(jsonEncoded));
     const assigned = a.lista_conductores || [];
     document.getElementById('link-patente').value = patente;
     const box = document.getElementById('lista-conductores-check');
     box.innerHTML = '';
 
     if (globalUsers.length === 0) {
-        box.innerHTML = '<div style="padding:10px;text-align:center">No se encontraron conductores activos (Rol 3).</div>';
+        box.innerHTML = '<div style="padding:10px;text-align:center;color:#e74c3c;font-weight:bold;">No se encontraron conductores activos (Rol 3).</div>';
     } else {
         globalUsers.forEach(u => {
             const isChecked = assigned.includes(u.email) ? 'checked' : '';

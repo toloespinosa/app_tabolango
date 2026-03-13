@@ -13,6 +13,9 @@ $nombre_mostrar = $current_user->first_name ? $current_user->first_name : $curre
 if ( ! is_user_logged_in() ) {
     $nombre_mostrar = "Invitado";
 }
+
+// 2. Obtenemos el Rol de forma segura usando nuestro motor centralizado
+$rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role() : 0;
 ?>
 
 <main class="site-main dashboard-container">
@@ -27,6 +30,7 @@ if ( ! is_user_logged_in() ) {
 
         <div class="actions-grid">
             
+            <?php if (in_array($rol_id, [1, 2, 4])) : // Admin, Editor y Vendedor ?>
             <a href="<?php echo home_url('/ingresar'); ?>" class="action-card card-verde">
                 <div class="icon-circle bg-verde">
                     <span class="plus-icon"></span>
@@ -36,7 +40,9 @@ if ( ! is_user_logged_in() ) {
                     <p>NUEVA VENTA</p>
                 </div>
             </a>
+            <?php endif; ?>
 
+            <?php if (in_array($rol_id, [1, 2, 3, 4])) : // TODOS (Incluyendo al Conductor) ?>
             <a href="<?php echo home_url('/pedidos'); ?>" class="action-card card-azul">
                 <div class="icon-circle bg-azul">📋</div>
                 <div class="card-info">
@@ -44,8 +50,9 @@ if ( ! is_user_logged_in() ) {
                     <p>GESTIÓN ACTIVA</p>
                 </div>
             </a>
+            <?php endif; ?>
 
-
+            <?php if (in_array($rol_id, [1, 2, 4])) : // Admin, Editor y Vendedor ?>
             <a href="<?php echo home_url('/entregados'); ?>" class="action-card card-admin">
                 <div class="icon-circle bg-admin">🚚</div>
                 <div class="card-info">
@@ -53,7 +60,9 @@ if ( ! is_user_logged_in() ) {
                     <p>PEDIDOS ENTREGADOS</p>
                 </div>
             </a>
+            <?php endif; ?>
 
+            <?php if (in_array($rol_id, [1, 2])) : // Solo Admin y Editor ?>
             <a href="<?php echo home_url('/estadisticas'); ?>" class="action-card card-stats">
                 <div class="icon-circle bg-stats">📊</div>
                 <div class="card-info">
@@ -61,7 +70,9 @@ if ( ! is_user_logged_in() ) {
                     <p>INTELIGENCIA DE VENTAS</p>
                 </div>
             </a>
+            <?php endif; ?>
 
+            <?php if (in_array($rol_id, [1, 2])) : // Solo Admin y Editor ?>
             <a href="<?php echo home_url('/gestion-facturas'); ?>" class="action-card card-naranja">
                 <div class="icon-circle bg-naranja">💵</div>
                 <div class="card-info">
@@ -69,6 +80,10 @@ if ( ! is_user_logged_in() ) {
                     <p>VER, ANULAR Y SOLICITAR CAF</p>
                 </div>
             </a>
-        </div></div></main>
+            <?php endif; ?>
+
+        </div>
+    </div>
+</main>
 
 <?php get_footer(); ?>

@@ -310,7 +310,8 @@ input:checked+.slider:before {
     backdrop-filter: blur(3px);
 }
 
-.custom-modal-autos .modal {
+/* AQUÍ ESTÁ LA CORRECCIÓN CLAVE */
+.custom-modal-autos .modal-flota-box {
     background: white;
     width: 95%;
     max-width: 450px;

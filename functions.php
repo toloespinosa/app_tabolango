@@ -244,20 +244,54 @@ function tabolango_requerir_rol($roles_permitidos) {
 add_action('wp_head', 'inyectar_identidad_app', 5);
 function inyectar_identidad_app() {
     if (!is_user_logged_in()) {
-        echo "\n<script>window.APP_USER_DATA = { email: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false };</script>\n";
+        echo "\n<script>window.APP_USER_DATA = { email: '', rol_id: 0, isAdmin: false, isEditor: false, isConductor: false, isVendedor: false, faltaTelefono: false };</script>\n";
         return;
     }
 
     $email = wp_get_current_user()->user_email;
-    $rol_id = tabolango_get_user_role(); // Usa la función centralizada que respeta tu Cookie de simulación
+    $rol_id = tabolango_get_user_role(); // Usa la función centralizada
+
+    // --- NUEVO: Verificar si falta el teléfono ---
+    $app_db = tabolango_get_app_db();
+    $telefono = $app_db->get_var($app_db->prepare("SELECT telefono FROM app_usuarios WHERE email = %s LIMIT 1", $email));
+    $falta_telefono = (empty(trim($telefono))) ? 'true' : 'false';
 
     $is_admin = ($rol_id === 1) ? 'true' : 'false';
     $is_editor = ($rol_id === 2) ? 'true' : 'false';
     $is_conductor = ($rol_id === 3) ? 'true' : 'false';
     $is_vendedor = ($rol_id === 4) ? 'true' : 'false';
 
-    echo "\n<script>window.APP_USER_DATA = { email: '{$email}', rol_id: {$rol_id}, isAdmin: {$is_admin}, isEditor: {$is_editor}, isConductor: {$is_conductor}, isVendedor: {$is_vendedor} };</script>\n";
+    echo "\n<script>window.APP_USER_DATA = { email: '{$email}', rol_id: {$rol_id}, isAdmin: {$is_admin}, isEditor: {$is_editor}, isConductor: {$is_conductor}, isVendedor: {$is_vendedor}, faltaTelefono: {$falta_telefono} };</script>\n";
 }
 
+/**
+ * NUEVO: GUARDAR TELÉFONO INICIAL DEL USUARIO (CON FORMATO +569)
+ */
+add_action('wp_ajax_guardar_mi_telefono', 'tabolango_guardar_mi_telefono');
+function tabolango_guardar_mi_telefono() {
+    if (!is_user_logged_in()) {
+        wp_send_json(['status' => 'error', 'message' => 'Sesión inválida.']);
+    }
+    
+    $email = wp_get_current_user()->user_email;
+    $telefono = sanitize_text_field($_POST['telefono'] ?? '');
+    
+    // 1. Limpiamos cualquier cosa que no sea número o el signo +
+    $telefono = preg_replace('/[^0-9+]/', '', $telefono);
+    
+    // 2. Verificamos con Regex que sea exactamente +569 seguido de 8 números
+    if (!preg_match('/^\+569\d{8}$/', $telefono)) {
+        wp_send_json(['status' => 'error', 'message' => 'Formato inválido. Debe ser +569XXXXXXXX.']);
+    }
+    
+    $app_db = tabolango_get_app_db();
+    $updated = $app_db->query($app_db->prepare("UPDATE app_usuarios SET telefono = %s WHERE email = %s", $telefono, $email));
+    
+    if ($updated !== false) {
+        wp_send_json(['status' => 'success', 'message' => 'Teléfono guardado.']);
+    } else {
+        wp_send_json(['status' => 'error', 'message' => 'Error de base de datos.']);
+    }
+}
 add_filter( 'show_admin_bar', '__return_false' );
 ?>

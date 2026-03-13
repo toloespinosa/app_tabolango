@@ -1,70 +1,105 @@
+console.log("🚀 Iniciando productos.js...");
+
 // 1. VARIABLES GLOBALES DE ESTADO
 let productosCache = [];
 let mostrarInactivos = false;
 let esAdminGlobal = false;
 let colorEnfasis = '#0F4B29';
 
-// 2. INICIALIZACIÓN
-document.addEventListener('DOMContentLoaded', inicializarPagina);
-
-async function inicializarPagina() {
-    window.moverModalesAlBody();
-
-    const btnCrear = document.getElementById('btn-abrir-crear');
-    if (btnCrear) btnCrear.style.display = 'none';
-
-    // 🌟 Uso de la Identidad Inteligente de global.js
-    const user = window.APP_USER;
-
-    // Si tiene privilegios de edición en productos (Admin = 1 o Editor = 2)
-    if (user && (user.isAdmin || user.isEditor)) {
-        esAdminGlobal = true;
-        colorEnfasis = user.isEditor ? '#F57C00' : '#0F4B29';
-
-        document.getElementById('admin-controls').style.display = 'block';
-        if (btnCrear) btnCrear.style.display = 'block';
-    }
-
-    await fetchProductos();
+// 2. INICIALIZACIÓN BLINDADA (Se ejecuta sí o sí)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarPagina);
+} else {
+    inicializarPagina(); // Si el DOM ya cargó, lo fuerza a iniciar
 }
 
-// 3. OBTENCIÓN Y RENDERIZADO (BLINDADO)
-async function fetchProductos() {
+async function inicializarPagina() {
     try {
+        console.log("✅ Ejecutando inicializarPagina()...");
+
+        // Verificación de seguridad por si global.js no cargó
+        if (typeof window.moverModalesAlBody === 'function') {
+            window.moverModalesAlBody();
+        }
+
+        const btnCrear = document.getElementById('btn-abrir-crear');
+        if (btnCrear) btnCrear.style.display = 'none';
+
+        // Identidad Inteligente
+        const user = window.APP_USER;
+        console.log("👤 Usuario detectado:", user);
+
+        if (user && (user.isAdmin || user.isEditor)) {
+            esAdminGlobal = true;
+            colorEnfasis = '#0F4B29';
+
+            const adminCtrls = document.getElementById('admin-controls');
+            if (adminCtrls) adminCtrls.style.display = 'block';
+            if (btnCrear) btnCrear.style.display = 'block';
+        }
+
+        await fetchProductos();
+
+    } catch (err) {
+        console.error("❌ Error en inicialización:", err);
+        document.getElementById('products-grid').innerHTML = `<p style="color:#ff6b6b; text-align:center; font-weight:bold;">Error de JS Local: ${err.message}</p>`;
+    }
+}
+
+// 3. OBTENCIÓN Y RENDERIZADO (CON DETECTOR DE ERRORES)
+async function fetchProductos() {
+    const grid = document.getElementById('products-grid');
+    console.log("📡 Ejecutando fetchProductos...");
+
+    try {
+        if (typeof window.getApi !== 'function') {
+            throw new Error("El archivo global.js no está cargado correctamente. Falta la función getApi().");
+        }
+
         const urlAPI = window.getApi('obtener_productos.php');
-        console.log("📍 Consultando Catálogo en:", urlAPI); // <-- CHIVATO 1: Verifica la ruta
+        console.log("🔗 Consultando API en:", urlAPI);
 
         const res = await fetch(urlAPI);
+        console.log("📥 Respuesta HTTP Status:", res.status);
 
-        // CHIVATO 2: Si el archivo no existe (404) o hay error de servidor (500)
         if (!res.ok) {
-            throw new Error(`HTTP Error ${res.status}: Revisa que la ruta del tema en global.js sea correcta.`);
+            throw new Error(`Error del Servidor HTTP ${res.status}. ¿Existe el archivo PHP?`);
         }
 
-        const data = await res.json();
+        // Leemos como texto primero para ver si PHP arrojó un error HTML en vez de JSON
+        const textRaw = await res.text();
 
-        // CHIVATO 3: Si la API devuelve un error SQL o de Auth, no es un Array.
-        if (!Array.isArray(data)) {
-            console.error("Respuesta inesperada de la API:", data);
-            throw new Error(data.message || "La base de datos no devolvió la lista de productos.");
+        try {
+            const data = JSON.parse(textRaw);
+
+            if (data.status === 'error') throw new Error(data.message);
+
+            productosCache = Array.isArray(data) ? data : [];
+            console.log("🍅 Productos cargados con éxito:", productosCache.length);
+
+            if (productosCache.length === 0) {
+                grid.innerHTML = '<p style="text-align:center; color:#AAA;">El catálogo está vacío o no hay conexión con la base de datos.</p>';
+            } else {
+                filtrarProductos(); // Llama a tu función de abajo
+            }
+
+        } catch (jsonErr) {
+            console.error("Texto crudo recibido del servidor:", textRaw);
+            throw new Error("El servidor no devolvió un JSON válido. Probablemente hay un error en el archivo PHP (Revisa la consola).");
         }
-
-        productosCache = data;
-        filtrarProductos();
 
     } catch (e) {
-        console.error("❌ Error Crítico cargando productos:", e);
-
-        // Mostrar el error exacto en la interfaz para depurar rápido
-        document.getElementById('products-grid').innerHTML = `
+        console.error("❌ Error Crítico API:", e);
+        grid.innerHTML = `
             <div style="grid-column: 1/-1; text-align:center; padding: 40px; background: rgba(255,0,0,0.1); border-radius: 15px; border: 1px solid rgba(255,0,0,0.2);">
                 <i class="fa-solid fa-triangle-exclamation" style="font-size: 40px; color: #ff6b6b; margin-bottom: 15px;"></i>
-                <h3 style="color: white; margin: 0;">Fallo de Conexión</h3>
+                <h3 style="color: white; margin: 0;">Error de Conexión</h3>
                 <p style="color: #ffbaba; font-size: 14px; margin-top: 5px; font-weight: 600;">${e.message}</p>
-                <p style="color: #ccc; font-size: 12px; margin-top: 15px;">Abre la consola (F12) para ver más detalles técnicos.</p>
             </div>`;
     }
 }
+
+// ... AQUÍ ABAJO SIGUE TU FUNCIÓN filtrarProductos() Y LAS DEMÁS ...
 
 function filtrarProductos() {
     const grid = document.getElementById('products-grid');

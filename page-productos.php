@@ -79,4 +79,33 @@ get_header();
                         <input type="number" step="0.1" name="kg_por_unidad" value="1" required class="inp-form">
                     </div>
                     <div style="flex:1">
-                        <label class="lbl-form">Cal
+                        <label class="lbl-form">Calibre</label>
+                        <input type="text" name="calibre" placeholder="1ra" class="inp-form fw-bold text-warning-custom">
+                    </div>
+                </div>
+
+                <div class="form-row-flex">
+                    <div style="flex:1">
+                        <label class="lbl-form">Venta ($)</label>
+                        <input type="number" name="precio_actual" required placeholder="0" class="inp-form">
+                    </div>
+                    <div style="flex:1">
+                        <label class="lbl-form">Costo ($)</label>
+                        <input type="number" name="costo_actual" required placeholder="0" class="inp-form">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="lbl-form">Color Identificador</label>
+                    <input type="color" name="color_diferenciador" value="#0F4B29" class="inp-color">
+                </div>
+
+                <button type="submit" class="btn-submit-product">
+                    <i class="fa-solid fa-cloud-arrow-up" style="margin-right:8px;"></i> REGISTRAR PRODUCTO
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php get_footer(); ?>

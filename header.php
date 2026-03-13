@@ -50,7 +50,7 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
                             <a href="<?php echo home_url('/clientes/'); ?>"><span role="img" class="emoji">🤝</span> Clientes</a>
                         <?php endif; ?>
                         
-                        <?php if (in_array($rol_id, [1, 2])) : // Solo Admin(1) y Editor(2) ?>
+                        <?php if (in_array($rol_id, [1, 2, 3, 4])) : // Solo Admin(1), Editor(2), Conductor(3) y Vendedor(4) ?>
                             <hr>
                             <a href="<?php echo home_url('/ajustes'); ?>"><span role="img" class="emoji">⚙️</span> Ajustes</a>
                         <?php endif; ?>

@@ -1,130 +1,129 @@
 <?php
-require_once 'auth.php';
-// 1. Definir la ruta raíz del tema (Sube un nivel desde /inc/)
-$theme_root = dirname(__DIR__);
+// inc/admin_data.php
+require_once 'auth.php'; // Inyecta CORS, $conn dinámica y Roles
 
-// 2. Cargar el Autoload de Composer (Librerías PDF, etc.)
-$autoload_path = $theme_root . '/vendor/autoload.php';
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
 
-if (file_exists($autoload_path)) {
-    require_once $autoload_path;
-} else {
-    // Si falla, mostramos la ruta donde lo buscó para depurar
-    die(json_encode([
-        "status" => "error", 
-        "message" => "Falta autoload.php", 
-        "debug_path" => $autoload_path
-    ]));
-}
+// =======================================================================
+// 0. ACCIÓN: SINCRONIZACIÓN DE GOOGLE (No requiere sesión estricta previa)
+// =======================================================================
+if ($action === 'google_sync') {
+    $email    = $_POST['email'] ?? '';
+    $foto_url = $_POST['foto_url'] ?? '';
+    $nombre   = $_POST['nombre'] ?? '';
+    $apellido = $_POST['apellido'] ?? '';
 
-// 3. Cargar el motor de WordPress (Para usar la base de datos y usuario actual)
-// Buscamos wp-load.php subiendo niveles hasta encontrarlo
-if (!defined('ABSPATH')) {
-    $wp_load_path = $theme_root;
-    while (!file_exists($wp_load_path . '/wp-load.php')) {
-        $wp_load_path = dirname($wp_load_path);
-        if ($wp_load_path == '/' || $wp_load_path == '.') break; // Evitar bucle infinito
-    }
-    
-    if (file_exists($wp_load_path . '/wp-load.php')) {
-        require_once($wp_load_path . '/wp-load.php');
-    }
-}
-
-// 4. Ahora ya puedes usar $wpdb y funciones de plugins
-global $wpdb;
-
-// --- AQUI EMPIEZA TU LÓGICA DEL ARCHIVO ---
-header("Content-Type: application/json; charset=UTF-8");
-// ... resto del código ...
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); 
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-$host = "localhost";
-$user = "tabolang_app";
-$pass = 'm{Hpj.?IZL$Kz${S'; 
-$db   = "tabolang_pedidos";
-
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-try {
-    $conn = new mysqli($host, $user, $pass, $db);
-    $conn->set_charset("utf8mb4");
-
-    $action = $_GET['action'] ?? $_POST['action'] ?? '';
-
-    // --- NUEVA ACCIÓN: SINCRONIZACIÓN DE GOOGLE ---
-    if ($action === 'google_sync') {
-        $email    = $_POST['email'] ?? '';
-        $foto_url = $_POST['foto_url'] ?? '';
-        $nombre   = $_POST['nombre'] ?? '';
-        $apellido = $_POST['apellido'] ?? '';
-
-        if (empty($email) || empty($foto_url)) {
-            echo json_encode(['status' => 'error', 'message' => 'Faltan datos']);
-            exit;
-        }
-
-        // Actualizamos la foto y nombres, pero NO tocamos teléfono ni fecha de nacimiento
-        $stmt = $conn->prepare("UPDATE app_usuarios SET foto_url=?, nombre=?, apellido=? WHERE email=?");
-        $stmt->bind_param("ssss", $foto_url, $nombre, $apellido, $email);
-        
-        if ($stmt->execute()) {
-            echo json_encode(['status' => 'success', 'message' => 'Sincronización completada']);
-        } else {
-            echo json_encode(['status' => 'error', 'message' => 'Error al actualizar']);
-        }
+    if (empty($email) || empty($foto_url)) {
+        echo json_encode(['status' => 'error', 'message' => 'Faltan datos para sincronizar.']);
         exit;
     }
 
-    // --- TUS ACCIONES EXISTENTES ---
-    if ($action === 'get_users') {
-        $query_users = "SELECT nombre, apellido, email, telefono, cargo, foto_url, fecha_nacimiento 
-                        FROM app_usuarios 
-                        WHERE email LIKE '%@%' 
-                        ORDER BY nombre ASC";
-        
-        $res_users = $conn->query($query_users);
-        $users_list = [];
-        while ($row = $res_users->fetch_assoc()) {
-            $users_list[] = $row;
-        }
+    $stmt = $conn->prepare("UPDATE app_usuarios SET foto_url=?, nombre=?, apellido=? WHERE email=?");
+    $stmt->bind_param("ssss", $foto_url, $nombre, $apellido, $email);
+    
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success', 'message' => 'Sincronización completada']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Error al actualizar sincronización.']);
+    }
+    exit;
+}
 
-        $res_roles = $conn->query("SELECT nombre_rol FROM app_roles ORDER BY nombre_rol ASC");
-        $roles_list = [];
-        while ($r = $res_roles->fetch_assoc()) {
-            $roles_list[] = $r['nombre_rol'];
+// =======================================================================
+// A PARTIR DE AQUÍ: ACCIONES RESTRINGIDAS (Requieren estar logueado)
+// =======================================================================
+if (empty($email_auth)) {
+    echo json_encode(['status' => 'error', 'message' => 'Sesión no detectada.']);
+    exit;
+}
+
+// =======================================================================
+// 1. OBTENER USUARIOS
+// =======================================================================
+if ($action === 'get_users') {
+    try {
+        $sql = "SELECT id, user_login, nombre, apellido, email, foto_url, telefono, cargo, activo, fecha_nacimiento 
+                FROM app_usuarios 
+                ORDER BY nombre ASC";
+        $result = $conn->query($sql);
+        
+        $users = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $users[] = $row;
+            }
         }
 
         echo json_encode([
-            'status' => 'success', 
-            'data' => $users_list,
-            'available_roles' => $roles_list
+            'status' => 'success',
+            'data' => $users
         ]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Error SQL: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// =======================================================================
+// 2. ACTUALIZAR DATOS DE USUARIO (Solo Admin)
+// =======================================================================
+if ($action === 'update_user_admin') {
+    
+    if ($rol_final !== 1) {
+        echo json_encode(['status' => 'error', 'message' => 'Acceso denegado. Solo administradores pueden editar.']);
+        exit;
     }
 
-    else if ($action === 'update_user_admin') {
-        $email = $_POST['email'] ?? '';
-        $nombre = $_POST['nombre'] ?? '';
-        $apellido = $_POST['apellido'] ?? '';
-        $telefono = $_POST['telefono'] ?? '';
-        $cargo = $_POST['cargo'] ?? 'usuario';
-        $fecha_nacimiento = $_POST['fecha_nacimiento'] ?? null;
+    $email_target = $_POST['email'] ?? '';
+    if (!$email_target) {
+        echo json_encode(['status' => 'error', 'message' => 'Falta el correo del usuario.']);
+        exit;
+    }
 
-        $stmt = $conn->prepare("UPDATE app_usuarios SET nombre=?, apellido=?, telefono=?, cargo=?, fecha_nacimiento=? WHERE email=?");
-        $stmt->bind_param("ssssss", $nombre, $apellido, $telefono, $cargo, $fecha_nacimiento, $email);
+    $nombre    = trim($_POST['nombre'] ?? '');
+    $apellido  = trim($_POST['apellido'] ?? '');
+    $telefono  = trim($_POST['telefono'] ?? '');
+    $fecha_nac = trim($_POST['fecha_nacimiento'] ?? '');
+    if (empty($fecha_nac)) $fecha_nac = '0000-00-00';
+    
+    $cargo     = $_POST['cargo'] ?? null;
+    $foto_url  = $_POST['foto_url'] ?? null;
+
+    try {
+        // Preparar actualización principal en app_usuarios
+        $sql_update = "UPDATE app_usuarios SET nombre=?, apellido=?, telefono=?, fecha_nacimiento=?";
+        $params = [$nombre, $apellido, $telefono, $fecha_nac];
+        $types = "ssss";
+
+        if ($cargo !== null) {
+            $sql_update .= ", cargo=?";
+            $params[] = $cargo;
+            $types .= "s";
+        }
+        if ($foto_url !== null) {
+            $sql_update .= ", foto_url=?";
+            $params[] = $foto_url;
+            $types .= "s";
+        }
+
+        $sql_update .= " WHERE email=?";
+        $params[] = $email_target;
+        $types .= "s";
+
+        $stmt = $conn->prepare($sql_update);
+        $stmt->bind_param($types, ...$params);
         
         if ($stmt->execute()) {
-            echo json_encode(['status' => 'success', 'message' => 'Usuario actualizado']);
+            echo json_encode(['status' => 'success', 'message' => 'Usuario actualizado correctamente.']);
         } else {
-            throw new Exception("Error al guardar cambios");
+            throw new Exception($stmt->error);
         }
+
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Error al guardar en BD: ' . $e->getMessage()]);
     }
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
-} finally {
-    if (isset($conn)) $conn->close();
+    exit;
 }
+
+echo json_encode(['status' => 'error', 'message' => 'Acción no válida solicitada a la API.']);
+?>
