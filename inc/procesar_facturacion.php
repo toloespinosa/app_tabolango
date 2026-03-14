@@ -91,11 +91,22 @@ try {
     $conn->set_charset("utf8");
     if ($conn->connect_error) { throw new Exception("Error Conexión BD"); }
 
+    // --- CAMBIO: CAPTURA OMNIDIRECCIONAL DE PARÁMETROS ---
     $input = json_decode(file_get_contents('php://input'), true);
-    $id_pedido = trim($conn->real_escape_string($_POST['id_pedido'] ?? $input['id_pedido'] ?? ''));
-    $tipo_doc  = $_POST['tipo_doc'] ?? $input['tipo_doc'] ?? 'factura';
+    
+    // $_REQUEST atrapa tanto si viene por POST (Form) como por GET (URL)
+    $raw_id = $_REQUEST['id_pedido'] ?? $input['id_pedido'] ?? '';
+    $raw_tipo = $_REQUEST['tipo_doc'] ?? $input['tipo_doc'] ?? 'factura';
+    
+    $id_pedido = trim($conn->real_escape_string((string)$raw_id));
+    $tipo_doc  = trim($conn->real_escape_string((string)$raw_tipo));
 
-    if (empty($id_pedido)) { throw new Exception("Falta ID pedido"); }
+    if (empty($id_pedido)) { 
+        // Agregamos info extra al error para saber qué método se usó si falla
+        $metodo = $_SERVER['REQUEST_METHOD'];
+        throw new Exception("Falta ID pedido. Método usado: $metodo"); 
+    }
+    // -----------------------------------------------------
 
     // --- CONTINUACIÓN CAMBIO 1: DEFINICIÓN DE CARPETAS FÍSICAS Y RELATIVAS ---
     if ($tipo_doc === 'guia') {
