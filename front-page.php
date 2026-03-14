@@ -84,15 +84,7 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
 
         </div>
     </div>
-    <div class="caja-blanca" style="text-align: center; margin-top: 20px;">
-    <i class="fa-solid fa-bell" style="font-size: 40px; color: #E98C00; margin-bottom: 15px;"></i>
-    <h4>Notificaciones Push</h4>
-    <p>Activa las alertas para saber al instante cuando se entregue un pedido o cambie de estado.</p>
     
-    <button type="button" id="btn-permiso-notis" class="btn-volver-denegado" style="background: #0F4B29; width: 100%;">
-        HABILITAR EN ESTE DISPOSITIVO
-    </button>
-</div>
 </main>
 
 <?php get_footer(); ?>
