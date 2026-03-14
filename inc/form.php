@@ -6,9 +6,13 @@ require_once 'auth.php';
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-// Carga de notificaciones (si existe)
-if (file_exists('notifications.php')) {
-    include_once('notifications.php');
+// Carga de notificaciones (Ruta Absoluta y Segura)
+$ruta_notis = __DIR__ . '/notifications.php';
+if (file_exists($ruta_notis)) {
+    include_once($ruta_notis);
+} else {
+    // Si no lo encuentra, lo dejamos registrado en el log de PHP para saberlo
+    error_log("TABOLANGO ALERT: No se encontró notifications.php en " . __DIR__);
 }
 
 // --------------------------------------------------

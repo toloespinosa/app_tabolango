@@ -19,21 +19,21 @@ let seleccionadoCat = null;
 let seleccionadoVar = null;
 let seleccionadoCal = null;
 
-// INICIALIZACIÓN PRINCIPAL
+// =========================================================
+// 1. INICIALIZACIÓN PRINCIPAL
+// =========================================================
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Verificamos que estamos en la página correcta (opcional pero recomendado)
     const orderForm = document.getElementById('orderForm');
     if (!orderForm) return;
 
     inyectarModales();
 
     try {
-        // Usamos la función global
         const userEmail = window.obtenerEmailLimpio();
 
         const [resCli, resProd] = await Promise.all([
             fetch(`${URL_API_CLI}&wp_user=${encodeURIComponent(userEmail)}`).then(r => r.json()),
-            fetch(URL_API_PROD).then(r => r.json()) // <-- Corregido el endpoint
+            fetch(URL_API_PROD).then(r => r.json())
         ]);
 
         procesarClientesAgrupados(resCli.clientes || []);
@@ -46,12 +46,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error inicializando:", e);
     }
 
-    // 2. CORRECCIÓN CRÍTICA: El onsubmit va adentro del DOMContentLoaded
+    // ENVÍO DE FORMULARIO (OPTIMIZADO CON SWEETALERT2)
     orderForm.onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnEnviar');
         const cli = document.getElementById('cliente_hidden').value;
-        if (!cli || !document.getElementById('fecha_entrega').value) return alert("Faltan datos");
+        const fecha = document.getElementById('fecha_entrega').value;
+
+        // Alerta: Faltan datos básicos
+        if (!cli || !fecha) {
+            return Swal.fire({
+                ...window.swalConfig,
+                icon: 'warning',
+                title: 'Faltan datos',
+                text: 'Por favor, selecciona un cliente y la fecha de entrega.'
+            });
+        }
 
         let arrayProds = [], arrayCants = [];
         document.querySelectorAll('.m-fila[data-confirmada="true"]').forEach(f => {
@@ -61,14 +71,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             arrayCants.push(cantidad);
         });
 
-        if (!arrayProds.length) return alert("Confirme productos con ✓");
+        // Alerta: No se confirmaron productos
+        if (!arrayProds.length) {
+            return Swal.fire({
+                ...window.swalConfig,
+                icon: 'warning',
+                title: 'Pedido Vacío',
+                text: 'Debe confirmar al menos un producto presionando el botón ✓.'
+            });
+        }
 
+        // Estado de carga
         btn.disabled = true;
         document.getElementById('btnText').innerText = "REGISTRANDO...";
 
         const fd = new FormData();
         fd.append('cliente', cli);
-        fd.append('fecha_entrega', document.getElementById('fecha_entrega').value);
+        fd.append('fecha_entrega', fecha);
         fd.append('producto', arrayProds.join(' | '));
         fd.append('cantidad', arrayCants.join(' | '));
         fd.append('observaciones', document.getElementById('observaciones').value);
@@ -76,34 +95,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const res = await fetch(URL_API_FORM, { method: 'POST', body: fd }).then(r => r.json());
+
             if (res.status === 'success') {
-                alert("✅ Pedido Registrado: " + res.pedido);
-                location.reload();
+                Swal.fire({
+                    ...window.swalConfig,
+                    icon: 'success',
+                    title: '¡Pedido Registrado!',
+                    html: `El pedido ha sido ingresado correctamente.<br><br><b style="color:#0F4B29; font-size:18px;">Pedido: ${res.pedido}</b>`,
+                    confirmButtonText: 'Aceptar'
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({ ...window.swalConfig, icon: 'error', title: 'Error del servidor', text: res.message });
+                btn.disabled = false;
+                document.getElementById('btnText').innerText = "REGISTRAR PEDIDO";
             }
-            else { alert("Error: " + res.message); btn.disabled = false; document.getElementById('btnText').innerText = "REGISTRAR PEDIDO"; }
-        } catch (err) { alert("Error de red"); btn.disabled = false; document.getElementById('btnText').innerText = "REGISTRAR PEDIDO"; }
+        } catch (err) {
+            Swal.fire({ ...window.swalConfig, icon: 'error', title: 'Error de Red', text: 'No se pudo contactar con el servidor. Revise su conexión.' });
+            btn.disabled = false;
+            document.getElementById('btnText').innerText = "REGISTRAR PEDIDO";
+        }
     };
-});
-
-// --- LÓGICA DE CLIENTES ---
-function procesarClientesAgrupados(clientesRaw) {
-    const clientesActivos = clientesRaw.filter(c => c.activo == "1");
-    const grupos = clientesActivos.reduce((acc, curr) => {
-        const nombreBase = curr.cliente.split(' - ')[0].trim();
-        if (!acc[nombreBase]) {
-            acc[nombreBase] = { nombreRaiz: nombreBase, sucursales: [], dataGlobal: null };
-        }
-        acc[nombreBase].sucursales.push(curr);
-        if (curr.es_global == 1 || curr.es_global == "1" || !curr.cliente.includes(' - ')) {
-            acc[nombreBase].dataGlobal = curr;
-        }
-        return acc;
-    }, {});
-    listaClientesMaster = Object.values(grupos);
-}
+}); // <--- AQUÍ FALTABA ESTE CIERRE CRÍTICO
 
 
-// --- LÓGICA DE CLIENTES ---
+// =========================================================
+// 2. LÓGICA DE PROCESAMIENTO DE DATOS
+// =========================================================
+
+// --- LÓGICA DE CLIENTES (Rankeados por venta) ---
 function procesarClientesAgrupados(clientesRaw) {
     const clientesActivos = clientesRaw.filter(c => c.activo == "1");
 
@@ -126,22 +147,22 @@ function procesarClientesAgrupados(clientesRaw) {
     // Convertimos el objeto en Array
     listaClientesMaster = Object.values(grupos);
 
-    // 🔥 Ordenamos los grupos de clientes de mayor a menor venta
+    // Ordenamos los grupos de clientes de mayor a menor venta
     listaClientesMaster.sort((a, b) => b.total_grupo - a.total_grupo);
 
-    // 🔥 Ordenamos las sucursales internamente de mayor a menor venta
+    // Ordenamos las sucursales internamente de mayor a menor venta
     listaClientesMaster.forEach(grupo => {
         grupo.sucursales.sort((a, b) => parseFloat(b.total_comprado || 0) - parseFloat(a.total_comprado || 0));
     });
 }
 
-// --- LÓGICA DE PRODUCTOS ---
+// --- LÓGICA DE PRODUCTOS (Corrige Case-Sensitivity) ---
 function procesarProductosAgrupados(productosRaw) {
     const grupos = {};
     productosRaw.forEach(curr => {
         const productoNombre = curr.producto || "Sin Nombre";
 
-        // 🔥 CORRECCIÓN: Leemos "variedad" en minúscula (como viene de la BD)
+        // CORRECCIÓN: Leemos "variedad" en minúscula (como viene de la BD)
         const valorVariedad = curr.variedad || curr.Variedad || "";
         const variedad = (valorVariedad.trim() !== "") ? valorVariedad.trim() : "";
 
@@ -167,8 +188,9 @@ function procesarProductosAgrupados(productosRaw) {
     listaProductosMaster = Object.values(grupos);
 }
 
-
-// --- FUNCIONES EXPUESTAS A WINDOW (Para que los onclick funcionen) ---
+// =========================================================
+// 3. FUNCIONES GLOBALES DE INTERFAZ (Expuestas a window)
+// =========================================================
 
 window.renderizarGridProductos = async function (filtro = "") {
     const grid = document.getElementById('grid-productos');
@@ -181,11 +203,11 @@ window.renderizarGridProductos = async function (filtro = "") {
         listaProductosMaster.forEach(g => {
             if (g.nombre.toLowerCase().includes(txt)) {
                 grid.innerHTML += `
-                    <div class="grid-item" onclick="window.seleccionarNivelCategoria('${g.nombre.replace(/'/g, "\\'")}')">
-                        <div class="grid-media" style="font-size:35px;">${g.icono}</div>
-                        <span>${g.nombre}</span>
-                        <div class="card-color-footer" style="background:${g.color}"></div>
-                    </div>`;
+                <div class="grid-item" onclick="window.seleccionarNivelCategoria('${g.nombre.replace(/'/g, "\\'")}')">
+                    <div class="grid-media" style="font-size:35px;">${g.icono}</div>
+                    <span>${g.nombre}</span>
+                    <div class="card-color-footer" style="background:${g.color}"></div>
+                </div>`;
             }
         });
     }
@@ -197,11 +219,11 @@ window.renderizarGridProductos = async function (filtro = "") {
         Object.keys(grupo.variedades).forEach(vKey => {
             const labelVar = vKey === "" ? "Estándar" : vKey;
             grid.innerHTML += `
-                <div class="grid-item" onclick="nivelProd=2; seleccionadoVar='${vKey}'; window.renderizarGridProductos()">
-                    <div class="grid-media"><b style="font-size:18px; color:${grupo.color}">${labelVar.substring(0, 3).toUpperCase()}</b></div>
-                    <span>${labelVar}</span>
-                    <div class="card-color-footer" style="background:${grupo.color}"></div>
-                </div>`;
+            <div class="grid-item" onclick="nivelProd=2; seleccionadoVar='${vKey}'; window.renderizarGridProductos()">
+                <div class="grid-media"><b style="font-size:18px; color:${grupo.color}">${labelVar.substring(0, 3).toUpperCase()}</b></div>
+                <span>${labelVar}</span>
+                <div class="card-color-footer" style="background:${grupo.color}"></div>
+            </div>`;
         });
     }
     else if (nivelProd === 2) {
@@ -218,11 +240,11 @@ window.renderizarGridProductos = async function (filtro = "") {
 
         Object.keys(varObj.calibres).forEach(cal => {
             grid.innerHTML += `
-                <div class="grid-item" onclick="nivelProd=3; seleccionadoCal='${cal}'; window.renderizarGridProductos()">
-                    <div class="grid-media"><b style="font-size:20px; color:${grupo.color}">${cal}</b></div>
-                    <span>CALIBRE</span>
-                    <div class="card-color-footer" style="background:${grupo.color}"></div>
-                </div>`;
+            <div class="grid-item" onclick="nivelProd=3; seleccionadoCal='${cal}'; window.renderizarGridProductos()">
+                <div class="grid-media"><b style="font-size:20px; color:${grupo.color}">${cal}</b></div>
+                <span>CALIBRE</span>
+                <div class="card-color-footer" style="background:${grupo.color}"></div>
+            </div>`;
         });
     }
     else if (nivelProd === 3) {
@@ -269,13 +291,13 @@ window.renderizarGridProductos = async function (filtro = "") {
             const nombreFull = seleccionadoVar ? `${p.producto} ${seleccionadoVar}` : p.producto;
 
             const itemHtml = `
-                <div class="grid-item" onclick="window.finalizarSeleccionProducto('${p.id_producto}', '${nombreFull.replace(/'/g, "\\'")}', '${p.calibre}', '${p.formato}', ${precioFinal}, '${grupo.color}')">
-                    <div class="grid-media"><b>${p.formato}</b></div>
-                    <span style="font-size:15px; font-weight:900; color:#333;">
-                        ${precioFinal > 0 ? window.formatearDinero(precioFinal) : 'Consultar'}
-                    </span>
-                    <div class="card-color-footer" style="background:${esEspecial ? '#E98C00' : '#27ae60'}"></div>
-                </div>`;
+            <div class="grid-item" onclick="window.finalizarSeleccionProducto('${p.id_producto}', '${nombreFull.replace(/'/g, "\\'")}', '${p.calibre}', '${p.formato}', ${precioFinal}, '${grupo.color}')">
+                <div class="grid-media"><b>${p.formato}</b></div>
+                <span style="font-size:15px; font-weight:900; color:#333;">
+                    ${precioFinal > 0 ? window.formatearDinero(precioFinal) : 'Consultar'}
+                </span>
+                <div class="card-color-footer" style="background:${esEspecial ? '#E98C00' : '#27ae60'}"></div>
+            </div>`;
 
             grid.insertAdjacentHTML('beforeend', itemHtml);
         }
@@ -308,12 +330,12 @@ window.renderizarGridClientes = function (filtro = "") {
                     : `window.seleccionarCliente('${principal.cliente.replace(/'/g, "\\'")}', '${principal.id_interno}', '${catName.replace(/'/g, "\\'")}')`;
 
                 grid.innerHTML += `
-                    <div class="grid-item" onclick="${clickAction}" style="position:relative;">
-                        ${tieneSucursales ? `<div style="position:absolute; top:8px; right:8px; background:#ff9500; color:white; font-size:10px; padding:2px 6px; border-radius:10px; font-weight:bold;">${grupo.sucursales.length - 1} SEDES</div>` : ''}
-                        <div class="grid-media">${logoHtml}</div>
-                        <span>${grupo.nombreRaiz}</span>
-                        <div class="card-color-footer" style="background: ${tieneSucursales ? '#ff9500' : '#eee'}"></div>
-                    </div>`;
+                <div class="grid-item" onclick="${clickAction}" style="position:relative;">
+                    ${tieneSucursales ? `<div style="position:absolute; top:8px; right:8px; background:#ff9500; color:white; font-size:10px; padding:2px 6px; border-radius:10px; font-weight:bold;">${grupo.sucursales.length - 1} SEDES</div>` : ''}
+                    <div class="grid-media">${logoHtml}</div>
+                    <span>${grupo.nombreRaiz}</span>
+                    <div class="card-color-footer" style="background: ${tieneSucursales ? '#ff9500' : '#eee'}"></div>
+                </div>`;
             }
         });
     } else {
@@ -329,11 +351,11 @@ window.renderizarGridClientes = function (filtro = "") {
                 const catNameSuc = s.nombre_categoria_cliente || '';
 
                 grid.innerHTML += `
-                    <div class="grid-item" onclick="window.seleccionarCliente('${s.cliente.replace(/'/g, "\\'")}', '${s.id_interno}', '${catNameSuc.replace(/'/g, "\\'")}')">
-                        <div class="grid-media">${logoHtml}</div>
-                        <span>${nombreSucursal}</span>
-                        <div class="card-color-footer" style="background:#eee"></div>
-                    </div>`;
+                <div class="grid-item" onclick="window.seleccionarCliente('${s.cliente.replace(/'/g, "\\'")}', '${s.id_interno}', '${catNameSuc.replace(/'/g, "\\'")}')">
+                    <div class="grid-media">${logoHtml}</div>
+                    <span>${nombreSucursal}</span>
+                    <div class="card-color-footer" style="background:#eee"></div>
+                </div>`;
             }
         });
     }
@@ -370,9 +392,9 @@ window.finalizarSeleccionProducto = function (id, nombre, calibre, formato, prec
     const fila = document.getElementById(`f-${filaActivaParaProducto}`);
     fila.querySelector('.p-sel-hidden').value = id;
     fila.querySelector('.p-name-display').innerHTML = `
-        <div style="color:#333; font-weight:bold;">${nombre}</div>
-        <div style="font-size:11px; color:#666;">${calibre} - ${formato}</div>
-    `;
+    <div style="color:#333; font-weight:bold;">${nombre}</div>
+    <div style="font-size:11px; color:#666;">${calibre} - ${formato}</div>
+`;
     fila.setAttribute('data-price', precio);
     fila.style.borderLeft = `6px solid ${color}`;
     window.cerrarModal('modal-productos');
@@ -414,13 +436,13 @@ window.agregarFilaProducto = function () {
     div.className = 'm-fila';
     div.id = `f-${contadorFilas}`;
     div.innerHTML = `
-        <div class="display-trigger p-name-display" onclick="window.prepararSeleccionProducto(${contadorFilas})">Toca para elegir...</div>
-        <input type="hidden" class="p-sel-hidden">
-        <div class="m-fila-controles">
-            <input type="number" step="any" class="p-qty" placeholder="Cant." style="flex:1" inputmode="decimal">
-            <button type="button" class="m-btn-action m-btn-check" onclick="window.toggleFila(${contadorFilas})">✓</button>
-            <button type="button" class="m-btn-action m-btn-remove" onclick="window.removeFila(${contadorFilas})">✕</button>
-        </div>`;
+    <div class="display-trigger p-name-display" onclick="window.prepararSeleccionProducto(${contadorFilas})">Toca para elegir...</div>
+    <input type="hidden" class="p-sel-hidden">
+    <div class="m-fila-controles">
+        <input type="number" step="any" class="p-qty" placeholder="Cant." style="flex:1" inputmode="decimal">
+        <button type="button" class="m-btn-action m-btn-check" onclick="window.toggleFila(${contadorFilas})">✓</button>
+        <button type="button" class="m-btn-action m-btn-remove" onclick="window.removeFila(${contadorFilas})">✕</button>
+    </div>`;
     document.getElementById('productos-container').appendChild(div);
     div.querySelector('.p-qty').addEventListener('input', window.calc);
 };
@@ -438,7 +460,7 @@ window.calc = function () {
         const cantidad = parseFloat(inputCant.value) || 0;
         total += precio * cantidad;
     });
-    document.getElementById('total_pedido_display').innerText = window.formatearDinero(total); // Usa el global
+    document.getElementById('total_pedido_display').innerText = window.formatearDinero(total);
 };
 
 window.toggleFila = function (id) {
@@ -469,23 +491,23 @@ window.removeFila = function (id) {
 
 function inyectarModales() {
     const html = `
-    <div id="modal-clientes" class="modal-grid-overlay">
-        <div class="modal-grid-content">
-            <div class="modal-grid-header">
-                <div class="header-top"><h3 id="titulo-modal-cli">Clientes</h3><button type="button" class="btn-cerrar-modal" onclick="window.cerrarModal('modal-clientes')">✕</button></div>
-                <div class="header-search"><input type="text" id="busquedaCliente" placeholder="🔍 Buscar cliente..." onkeyup="window.renderizarGridClientes(this.value)"></div>
-            </div>
-            <div id="grid-clientes" class="grid-container"></div>
+<div id="modal-clientes" class="modal-grid-overlay">
+    <div class="modal-grid-content">
+        <div class="modal-grid-header">
+            <div class="header-top"><h3 id="titulo-modal-cli">Clientes</h3><button type="button" class="btn-cerrar-modal" onclick="window.cerrarModal('modal-clientes')">✕</button></div>
+            <div class="header-search"><input type="text" id="busquedaCliente" placeholder="🔍 Buscar cliente..." onkeyup="window.renderizarGridClientes(this.value)"></div>
         </div>
+        <div id="grid-clientes" class="grid-container"></div>
     </div>
-    <div id="modal-productos" class="modal-grid-overlay">
-        <div class="modal-grid-content">
-            <div class="modal-grid-header">
-                <div class="header-top"><h3>Productos</h3><button type="button" class="btn-cerrar-modal" onclick="window.cerrarModal('modal-productos')">✕</button></div>
-                <div class="header-search"><input type="text" placeholder="🔍 Buscar producto..." onkeyup="window.filtrarGrid('grid-productos', this.value)"></div>
-            </div>
-            <div id="grid-productos" class="grid-container"></div>
+</div>
+<div id="modal-productos" class="modal-grid-overlay">
+    <div class="modal-grid-content">
+        <div class="modal-grid-header">
+            <div class="header-top"><h3>Productos</h3><button type="button" class="btn-cerrar-modal" onclick="window.cerrarModal('modal-productos')">✕</button></div>
+            <div class="header-search"><input type="text" placeholder="🔍 Buscar producto..." onkeyup="window.filtrarGrid('grid-productos', this.value)"></div>
         </div>
-    </div>`;
+        <div id="grid-productos" class="grid-container"></div>
+    </div>
+</div>`;
     document.body.insertAdjacentHTML('beforeend', html);
 }

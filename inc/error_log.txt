@@ -19,3 +19,12 @@
 2026-03-13 10:37:25 | Cat: notify_cambio_estado | Token ID: 71 | Resp: 404
 2026-03-13 10:37:25 | Cat: notify_cambio_estado | Token ID: 111 | Resp: 404
 2026-03-13 13:35:19 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
+2026-03-14 02:28:44 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
+2026-03-14 02:33:29 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
+2026-03-14 02:34:46 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
+2026-03-14 02:34:46 | Cat: notify_pedido_creado | Token ID: 112 | Resp: 404
+2026-03-14 02:34:46 | Cat: notify_pedido_creado | Token ID: 113 | Resp: 404
+2026-03-14 02:41:28 ERROR CRÍTICO: No se encontró service-account.json en la ruta: /Users/juanandres/Local Sites/tabolango-app/app/public/service-account.json
+2026-03-14 02:41:28 ERROR: No Access Token.
+2026-03-14 02:45:54 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
+2026-03-14 02:48:04 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
