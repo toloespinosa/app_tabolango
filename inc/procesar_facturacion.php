@@ -67,23 +67,18 @@ try {
 
     // --- CAMBIO 1: NUEVO SISTEMA DE RUTAS (FORZADO AL DOMINIO PRINCIPAL) ---
     $host_actual = $_SERVER['HTTP_HOST'] ?? '';
-    $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/'); // Obtiene la raíz del entorno actual
+    $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/'); // /home/tabolang/erp.tabolango.cl
 
     // Si estamos ejecutando desde el subdominio de Producción
-    if (strpos($host_actual, 'erp.tabolango.cl') !== false) {
-        // Caso A (Hostinger hPanel): Cambia /domains/erp.tabolango.cl/public_html a /domains/tabolango.cl/public_html
-        $ruta_public = str_replace('erp.tabolango.cl', 'tabolango.cl', $ruta_raiz);
-        
-        // Caso B (cPanel Clásico): Si el subdominio es una subcarpeta dentro de public_html (ej: /public_html/erp)
-        if (strpos($ruta_raiz, 'public_html/erp') !== false) {
-            $ruta_public = str_replace('/erp', '', $ruta_raiz); 
-        }
+    if (strpos($host_actual, 'erp.tabolango.cl') !== false || strpos($ruta_raiz, 'erp.tabolango.cl') !== false) {
+        // En Hostinger, el dominio principal está en public_html
+        $ruta_public = str_replace('erp.tabolango.cl', 'public_html', $ruta_raiz);
     } else {
-        // Si estamos en LocalWP o directamente en tabolango.cl
+        // Si estamos en LocalWP 
         $ruta_public = $ruta_raiz;
     }
 
-    $ruta_base_uploads = $ruta_public . '/uploads/';
+    $ruta_base_uploads = rtrim($ruta_public, '/') . '/uploads/';
     $path_certificado = $ruta_base_uploads . "certificados/certificado.pfx"; 
     // ---------------------------------------------------------------------------
 
