@@ -1,6 +1,6 @@
 <?php
 require_once 'auth.php';
-// procesar_facturacion.php - V83: ASÍNCRONO + TABLA dte_emitidos + BLINDAJE LOCAL (SUFIJO "S")
+// procesar_facturacion.php - V83: ASÍNCRONO + TABLA dte_emitidos + BLINDAJE LOCAL (SUFIJO "S") + RUTAS CENTRALIZADAS
 ob_start(); 
 
 header("Access-Control-Allow-Origin: *");
@@ -65,19 +65,27 @@ try {
     $INICIO_CAF_FACTURA = 251; 
     $INICIO_CAF_GUIA    = 146; 
 
-    // Blindaje de ruta para el Certificado Digital
-$rutas_cert = [
-    __DIR__ . "/uploads/certificados/certificado.pfx",      // Si se ejecuta en la raíz
-    __DIR__ . "/../uploads/certificados/certificado.pfx"    // Si se ejecuta dentro de /inc
-];
+    // --- CAMBIO 1: NUEVO SISTEMA DE RUTAS (FORZADO AL DOMINIO PRINCIPAL) ---
+    $host_actual = $_SERVER['HTTP_HOST'] ?? '';
+    $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/'); // Obtiene la raíz del entorno actual
 
-$path_certificado = "";
-foreach ($rutas_cert as $ruta) {
-    if (file_exists($ruta)) {
-        $path_certificado = $ruta;
-        break;
+    // Si estamos ejecutando desde el subdominio de Producción
+    if (strpos($host_actual, 'erp.tabolango.cl') !== false) {
+        // Caso A (Hostinger hPanel): Cambia /domains/erp.tabolango.cl/public_html a /domains/tabolango.cl/public_html
+        $ruta_public = str_replace('erp.tabolango.cl', 'tabolango.cl', $ruta_raiz);
+        
+        // Caso B (cPanel Clásico): Si el subdominio es una subcarpeta dentro de public_html (ej: /public_html/erp)
+        if (strpos($ruta_raiz, 'public_html/erp') !== false) {
+            $ruta_public = str_replace('/erp', '', $ruta_raiz); 
+        }
+    } else {
+        // Si estamos en LocalWP o directamente en tabolango.cl
+        $ruta_public = $ruta_raiz;
     }
-}
+
+    $ruta_base_uploads = $ruta_public . '/uploads/';
+    $path_certificado = $ruta_base_uploads . "certificados/certificado.pfx"; 
+    // ---------------------------------------------------------------------------
 
     $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
     $conn->set_charset("utf8");
@@ -89,24 +97,30 @@ foreach ($rutas_cert as $ruta) {
 
     if (empty($id_pedido)) { throw new Exception("Falta ID pedido"); }
 
+    // --- CONTINUACIÓN CAMBIO 1: DEFINICIÓN DE CARPETAS FÍSICAS Y RELATIVAS ---
     if ($tipo_doc === 'guia') {
         $codigo_dte = 52;
         $nombre_dte = "GUIA DE DESPACHO ELECTRONICA";
-        $carpeta_relativa_pdf = "uploads/guia_de_despacho/";
-        $carpeta_relativa_xml = "uploads/guias_xml/";
-        $columna_bd_folio = "numero_guia"; 
-        $inicio_rango = $INICIO_CAF_GUIA;
+        $carpeta_fisica_pdf = $ruta_base_uploads . "guia_de_despacho/";
+        $carpeta_fisica_xml = $ruta_base_uploads . "guias_xml/";
+        $url_relativa_pdf   = "uploads/guia_de_despacho/";
+        $url_relativa_xml   = "uploads/guias_xml/";
+        $columna_bd_folio   = "numero_guia"; 
+        $inicio_rango       = $INICIO_CAF_GUIA;
     } else {
         $codigo_dte = 33;
         $nombre_dte = "FACTURA ELECTRONICA";
-        $carpeta_relativa_pdf = "uploads/facturas_api/";
-        $carpeta_relativa_xml = "uploads/facturas_xml/";
-        $columna_bd_folio = "numero_factura"; 
-        $inicio_rango = $INICIO_CAF_FACTURA;
+        $carpeta_fisica_pdf = $ruta_base_uploads . "facturas_api/";
+        $carpeta_fisica_xml = $ruta_base_uploads . "facturas_xml/";
+        $url_relativa_pdf   = "uploads/facturas_api/";
+        $url_relativa_xml   = "uploads/facturas_xml/";
+        $columna_bd_folio   = "numero_factura"; 
+        $inicio_rango       = $INICIO_CAF_FACTURA;
     }
 
-    if (!is_dir(__DIR__ . "/" . $carpeta_relativa_pdf)) mkdir(__DIR__ . "/" . $carpeta_relativa_pdf, 0755, true);
-    if (!is_dir(__DIR__ . "/" . $carpeta_relativa_xml)) mkdir(__DIR__ . "/" . $carpeta_relativa_xml, 0755, true);
+    if (!is_dir($carpeta_fisica_pdf)) mkdir($carpeta_fisica_pdf, 0755, true);
+    if (!is_dir($carpeta_fisica_xml)) mkdir($carpeta_fisica_xml, 0755, true);
+    // -------------------------------------------------------------------------
 
     $codigo_dte_db = $MODO_SIMULACION ? $codigo_dte . "S" : (string)$codigo_dte;
 
@@ -247,10 +261,12 @@ foreach ($rutas_cert as $ruta) {
     $prefijo = ($tipo_doc == 'guia') ? "G" : "F";
     $nombre_base = "{$prefijo}{$folio_final}{$sufijo_sim}_{$id_pedido}";
     
-    $ruta_xml = __DIR__ . "/" . $carpeta_relativa_xml . $nombre_base . ".xml";
-    $url_xml  = $DOMINIO_BASE . $carpeta_relativa_xml . $nombre_base . ".xml";
-    $ruta_pdf = __DIR__ . "/" . $carpeta_relativa_pdf . $nombre_base . ".pdf";
-    $url_pdf  = $DOMINIO_BASE . $carpeta_relativa_pdf . $nombre_base . ".pdf";
+    // --- CAMBIO 2: RUTAS ABSOLUTAS Y URLs DEFINITIVAS ---
+    $ruta_xml = $carpeta_fisica_xml . $nombre_base . ".xml";
+    $url_xml  = $DOMINIO_BASE . $url_relativa_xml . $nombre_base . ".xml";
+    $ruta_pdf = $carpeta_fisica_pdf . $nombre_base . ".pdf";
+    $url_pdf  = $DOMINIO_BASE . $url_relativa_pdf . $nombre_base . ".pdf";
+    // ----------------------------------------------------
 
     // =========================================================================
     // COMUNICACIÓN CON SIMPLE API
@@ -261,9 +277,9 @@ foreach ($rutas_cert as $ruta) {
         if (!file_exists($path_certificado)) throw new Exception("Falta certificado.pfx"); 
         
         $path_caf_actual = "";
-        // Busca en la raíz o un nivel arriba dependiendo de dónde esté el script
-$dir_certificados = is_dir(__DIR__ . "/uploads/certificados") ? __DIR__ . "/uploads/certificados/" : __DIR__ . "/../uploads/certificados/";
-$archivos_caf = glob($dir_certificados . "*caf_" . $codigo_dte . "*.xml");
+        // --- CAMBIO 3: BUSQUEDA DEL CAF EN LA CARPETA CENTRALIZADA ---
+        $archivos_caf = glob($ruta_base_uploads . "certificados/*caf_" . $codigo_dte . "*.xml");
+        // -------------------------------------------------------------
         foreach ($archivos_caf as $archivo) {
             $xml_caf = @simplexml_load_file($archivo);
             if ($xml_caf && isset($xml_caf->CAF->DA->RNG)) {
@@ -454,5 +470,4 @@ $archivos_caf = glob($dir_certificados . "*caf_" . $codigo_dte . "*.xml");
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     exit;
 }
-/*para probar*/
 ?>
