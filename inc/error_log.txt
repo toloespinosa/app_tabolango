@@ -28,3 +28,5 @@
 2026-03-14 02:41:28 ERROR: No Access Token.
 2026-03-14 02:45:54 | Cat: notify_pedido_creado | Token ID: 64 | Resp: 200
 2026-03-14 02:48:04 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
+2026-03-14 02:51:20 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
+2026-03-14 02:58:52 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200

@@ -51,29 +51,26 @@ function enviarNotificacionFCM($email_destino, $titulo, $mensaje, $url_destino =
         $titulo_clean = utf8ize($titulo);
         $mensaje_clean = utf8ize($mensaje);
 
-       $payload = [
-    'message' => [
-        'token' => $token,
-        // ESTE BLOQUE ES EL QUE HACE QUE SUENE Y SALGA EL BANNER EN EL CELULAR
-        'notification' => [
-            'title' => $titulo_clean,
-            'body'  => $mensaje_clean,
-        ],
-        'data' => [
-            'url' => (string)$url_destino,
-            'title' => $titulo_clean, 
-            'body' => $mensaje_clean
-        ],
-        // ...
-
+     $payload = [
+            'message' => [
+                'token' => $token,
+                // 1. Notificación estándar (Fuerza el banner en iOS y Android)
+                'notification' => [
+                    'title' => $titulo_clean,
+                    'body'  => $mensaje_clean
+                ],
+                // 2. Datos ocultos (Para que la app sepa qué abrir al hacer clic)
                 'data' => [
                     'url' => (string)$url_destino,
-                    'title' => $titulo_clean, 
-                    'body' => $mensaje_clean
+                    'click_action' => (string)$url_destino
                 ],
+                // 3. Configuración específica para Navegadores Web y PWA
                 'webpush' => [
                     'fcm_options' => [
                         'link' => (string)$url_destino
+                    ],
+                    'notification' => [
+                        'vibrate' => [200, 100, 200] // Hace vibrar el teléfono
                     ]
                 ]
             ]
