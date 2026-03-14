@@ -1,2 +1,6 @@
 # Ignorar credenciales de Google Cloud
 inc/service-account.json
+
+# Ignorar archivos generados dinámicamente y certificados sensibles
+inc/uploads/
+inc/uploads/*
