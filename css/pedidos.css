@@ -1072,43 +1072,253 @@
     background-color: #c0392b !important;
 }
 
-/* --- MOBILE RESPONSIVENESS --- */
+/* --- MOBILE RESPONSIVENESS (FINAL FIX) --- */
 @media (max-width: 768px) {
-    .orders-grid, .input-grid-2 {
-        grid-template-columns: 1fr !important;
-    }
-    .admin-input-row, .order-header {
-        flex-direction: column;
-        width: 100%;
-    }
-    .m-card, .modal-content, .detalle-tabla-content {
-        width: 95% !important;
-        padding: 20px !important;
-        max-width: 100% !important;
-    }
-    .products-list, .detalle-body {
-        overflow-y: auto !important;
-    }
-    .form-title {
-        font-size: 22px !important;
-        margin-bottom: 20px;
-    }
-    .order-status-label {
-        width: 100%;
-    }
-    .btn-edit-order, .btn-save-admin, .trigger-flip-bar {
-        width: 100% !important;
-    }
-}
 
-@media (max-width: 480px) {
-    .m-card, .modal-content, .detalle-tabla-content {
-        padding: 15px !important;
+    /* 1. Blindaje maestro para evitar el scroll lateral en la grilla */
+    .tabolango-orders-container {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        padding: 20px 10px !important;
     }
-    .order-body h3 {
-        font-size: 17px !important;
+
+    .orders-grid {
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+        margin: 0 !important;
     }
-    .form-title {
-        font-size: 18px !important;
+
+    /* 2. Forzar a la tarjeta a que NO deje salir nada a los lados, Y QUE CREZCA HACIA ABAJO */
+    .order-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        /* 🔥 LA CLAVE: Permite que la tarjeta se estire si el contenido es largo */
+        min-height: 400px !important;
+        /* Mantiene un alto mínimo para que no se deforme */
+        overflow: hidden !important;
+        border-radius: 15px;
+    }
+
+    /* 3. BOTONES DE GESTIÓN Y DOCUMENTOS: Mismo alto que "Volver" (55px) */
+    .btn-pdf-upload,
+    .upload-zone-small,
+    .btn-edit-order,
+    .btn-save-admin {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 55px !important;
+        min-height: 55px !important;
+        width: 100% !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        padding: 0 15px !important;
+        box-sizing: border-box !important;
+        margin-bottom: 8px !important;
+    }
+
+    .admin-fields input {
+        height: 55px !important;
+        box-sizing: border-box !important;
+        font-size: 16px !important;
+    }
+
+    /* =======================================================
+       4. TU IDEA: TARJETA MÁS ALTA Y UX RESPIRABLE
+       ======================================================= */
+
+    /* 1. Alargamos la tarjeta para que quepa el botón gigante sin aplastar nada */
+    .order-card {
+        height: 480px !important;
+        /* 🔥 De 395px pasamos a 480px */
+        overflow: visible !important;
+    }
+
+    /* 2. Las caras heredan el nuevo alto y se vuelven columnas perfectas */
+    .card-front,
+    .card-back {
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        /* El corte se hace aquí para mantener bordes curvos */
+    }
+
+    /* 3. El cuerpo de la tarjeta */
+    .card-main-content {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 20px 20px 0 20px !important;
+        /* Quitamos padding inferior para que asiente el botón */
+    }
+
+    /* 4. Lista de productos: Toma el centro y hace scroll si hay muchos */
+    .products-list {
+        flex: 1 !important;
+        height: auto !important;
+        min-height: 80px !important;
+        /* Asegura un área mínima para productos */
+        overflow-y: auto !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* 5. El precio se queda siempre visible por encima del botón */
+    .order-footer {
+        margin-top: auto !important;
+        /* Lo empuja hacia abajo de la lista */
+        padding-top: 10px !important;
+        padding-bottom: 15px !important;
+        /* Le da aire antes de chocar con el botón verde */
+        flex-shrink: 0 !important;
+    }
+
+    /* 👉 BOTÓN FRONTAL (Verde: "Documentos / Gestión") */
+    .card-front .trigger-flip-bar {
+        position: relative !important;
+        /* Flujo normal: NUNCA se pondrá encima de nada */
+        width: 100% !important;
+        height: 55px !important;
+        min-height: 55px !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 0 0 15px 15px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* 👉 BOTÓN TRASERO (Negro: "Volver") */
+    .trigger-flip-bar.back-btn {
+        position: relative !important;
+        width: calc(100% + 30px) !important;
+        /* Compensa los 15px de padding de tu diseño */
+        height: 55px !important;
+        min-height: 55px !important;
+        margin-top: auto !important;
+        /* Lo manda al fondo de la cara trasera */
+        margin-left: -15px !important;
+        margin-right: -15px !important;
+        margin-bottom: -15px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 0 0 15px 15px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* 5. Ajustes de otros elementos */
+    .order-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px;
+    }
+
+    .status-group {
+        width: 100% !important;
+        min-width: 100% !important;
+    }
+
+    .m-card,
+    .modal-content {
+        width: 95% !important;
+        margin: auto !important;
+    }
+
+    /* =======================================================
+       🚀 FIX EXCLUSIVO Y DEFINITIVO: MODAL "ENVIAR DETALLE"
+       ======================================================= */
+
+    /* 1. Medida Matemática Inamovible + Muerte al auto-estiramiento */
+    .detalle-tabla-content {
+        width: calc(100vw - 40px) !important;
+        /* Siempre dejará 20px de aire a los lados */
+        max-width: 400px !important;
+        /* Límite máximo en móviles grandes */
+        display: block !important;
+        /* 🔥 CRÍTICO: Mata el flexbox que causa el auto-estiramiento */
+        padding: 0 !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        /* Corta de raíz cualquier cosa que intente asomarse */
+    }
+
+    /* 2. Secciones internas rígidas */
+    .detalle-header,
+    .detalle-body,
+    .detalle-footer {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: block !important;
+        /* Fuerza a que respeten el ancho del padre */
+        box-sizing: border-box !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+    }
+
+    .detalle-header {
+        padding-top: 20px !important;
+        padding-bottom: 20px !important;
+        overflow: hidden !important;
+    }
+
+    .detalle-body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        max-height: 60vh !important;
+        /* Asegura que el scroll sea interno, no de la pantalla */
+    }
+
+    /* 3. Bloquear RUTs y correos largos */
+    .rut-container {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        box-sizing: border-box !important;
+    }
+
+    /* 4. Filas de productos inamovibles */
+    .item-row {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        box-sizing: border-box !important;
+        padding: 15px 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* 5. Fuerza bruta para partir textos rebeldes */
+    .item-title,
+    .item-meta,
+    .item-price-total {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        white-space: normal !important;
+        word-break: break-all !important;
+        /* 🔥 Si el texto es una sola línea gigante, la corta con sierra */
+    }
+
+    .item-price-total {
+        text-align: left !important;
+        /* En móvil se ve mejor a la izquierda bajo el título */
+        margin-top: 5px !important;
+        font-size: 16px !important;
+    }
+
+    /* 6. Botones y recuadros contenidos */
+    .btn-cerrar-block,
+    .resumen-total {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
 }

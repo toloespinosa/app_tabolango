@@ -20,7 +20,14 @@ set_time_limit(120);
 $MODO_SIMULACION = false; // <--- TRUE: USA "52S" O "33S" EN LA BASE DE DATOS
 // -----------------------------------------------------------------------------
 
-$rutas_posibles = [__DIR__ . '/vendor/autoload.php', __DIR__ . '/autoload.php', __DIR__ . '/librerias/autoload.php'];
+// Ampliamos el scope de búsqueda considerando la estructura clásica de temas en WP
+$rutas_posibles = [
+    __DIR__ . '/vendor/autoload.php',          // Si está en el mismo directorio
+    __DIR__ . '/../vendor/autoload.php',       // <-- CLAVE: Sube un nivel (ej: desde /inc hacia el root del tema)
+    __DIR__ . '/../../vendor/autoload.php',    // <-- Sube dos niveles por blindaje extra
+    __DIR__ . '/autoload.php', 
+    __DIR__ . '/librerias/autoload.php'
+];
 $autoload_encontrado = false;
 foreach ($rutas_posibles as $ruta) { if (file_exists($ruta)) { require_once $ruta; $autoload_encontrado = true; break; } }
 if (!$autoload_encontrado) { 

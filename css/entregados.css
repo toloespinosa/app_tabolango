@@ -922,48 +922,101 @@
      }
  }
 
-/* --- MOBILE RESPONSIVENESS --- */
-@media (max-width: 768px) {
-    .cards-grid {
-        grid-template-columns: 1fr !important;
-    }
-    .fila-dividida {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-    }
-    .masivo-channels {
-        flex-direction: column;
-        width: 100%;
-    }
-    .channel-btn {
-        width: 100%;
-        justify-content: center;
-    }
-    .m-card, .modal-ventana, .modal-grid-content {
-        width: 95% !important;
-        padding: 20px !important;
-        max-width: 100% !important;
-    }
-    .header-section h2 {
-        font-size: 24px !important;
-    }
-    .card-front, .card-back {
-        padding: 25px 20px 20px 20px !important;
-    }
-    .btn-main, .btn-whatsapp-card, .btn-whatsapp-sent, .m-btn-submit {
-        width: 100% !important;
-    }
-}
+ /* --- MOBILE RESPONSIVENESS --- */
+ @media (max-width: 768px) {
+     .cards-grid {
+         grid-template-columns: 1fr !important;
+     }
 
-@media (max-width: 480px) {
-    .m-card, .modal-grid-content {
-        padding: 15px !important;
-    }
-    .header-section h2 {
-        font-size: 22px !important;
-    }
-    .card-entregado h3 {
-        font-size: 17px !important;
-    }
-}
+     .fila-dividida {
+         flex-direction: column;
+         align-items: flex-start;
+         gap: 5px;
+     }
+
+     .masivo-channels {
+         flex-direction: column;
+         width: 100%;
+     }
+
+     .channel-btn {
+         width: 100%;
+         justify-content: center;
+     }
+
+     .m-card,
+     .modal-ventana,
+     .modal-grid-content {
+         width: 95% !important;
+         padding: 20px !important;
+         max-width: 100% !important;
+     }
+
+     .header-section h2 {
+         font-size: 24px !important;
+     }
+
+     /* =======================================================
+       🔥 FIX 2: TARJETA MÁS ALTA Y SIN SCROLL EN LA CARA TRASERA
+       ======================================================= */
+     .card-entregado,
+     .order-card {
+         /* Le damos una altura fija mayor. Si antes era 395px, con 425px blindamos el espacio */
+         height: 425px !important;
+         min-height: 425px !important;
+         max-height: 425px !important;
+         /* Bloqueamos para que no colapse ni se estire de más */
+     }
+
+     .card-front,
+     .card-back {
+         height: 100% !important;
+         padding: 25px 20px !important;
+         /* 🔥 ESTO MATA EL SCROLL: Si la tarjeta mide 425px, los botones caben y el scroll desaparece */
+         overflow: hidden !important;
+         display: flex !important;
+         flex-direction: column !important;
+     }
+
+     /* Si los 3 botones traseros están en un contenedor, aseguramos que se distribuyan bien */
+     .card-back .doc-container,
+     .card-back .admin-fields {
+         margin-bottom: 10px !important;
+     }
+
+     /* =======================================================
+       🔥 FIX 1: BOTÓN WHATSAPP MÁS ANGOSTO (Para todo móvil)
+       ======================================================= */
+     .btn-whatsapp-card,
+     .btn-whatsapp-sent {
+         width: max-content !important;
+         min-width: 100px !important;
+         /* Lo bajamos de 120px a 100px para hacerlo más angosto */
+         max-width: 100% !important;
+         border-radius: 50px !important;
+         margin: 10px auto !important;
+         display: flex !important;
+         align-items: center !important;
+         justify-content: center !important;
+         padding: 6px 14px !important;
+         /* Le quitamos relleno para que se abrace más al texto */
+         font-size: 13px !important;
+         /* Un poco más sutil */
+     }
+ }
+
+ @media (max-width: 480px) {
+
+     .m-card,
+     .modal-grid-content {
+         padding: 15px !important;
+     }
+
+     .header-section h2 {
+         font-size: 22px !important;
+     }
+
+     .card-entregado h3 {
+         font-size: 17px !important;
+     }
+ }

@@ -670,19 +670,29 @@ select {
 
 /* --- MOBILE RESPONSIVENESS (max-width: 768px & 480px) --- */
 @media (max-width: 768px) {
+
     /* Typografía Títulos - Reducción suave */
-    h1 { font-size: 24px !important; }
-    h2 { font-size: 22px !important; }
-    h3 { font-size: 20px !important; }
-    
+    h1 {
+        font-size: 24px !important;
+    }
+
+    h2 {
+        font-size: 22px !important;
+    }
+
+    h3 {
+        font-size: 20px !important;
+    }
+
     /* Cajas y Contenedores Principales */
     .caja-blanca {
         padding: 20px !important;
     }
+
     .tabolango-dashboard {
         padding: 20px 15px !important;
     }
-    
+
     /* Header - Asegurar que no se rompa */
     .header-container {
         flex-direction: column;
@@ -690,23 +700,26 @@ select {
         padding-top: 15px;
         align-items: center;
     }
-    .header-left, .header-center, .header-right {
+
+    .header-left,
+    .header-center,
+    .header-right {
         flex: none;
         width: 100%;
         text-align: center;
         justify-content: center;
     }
-    
+
     /* Grillas a 1 columna */
     .actions-grid {
         grid-template-columns: 1fr !important;
     }
-    
+
     /* Ajustes bienvenida */
     .welcome-text h1 {
         font-size: 26px !important;
     }
-    
+
     /* Botones y User Profile dropdown */
     .user-dropdown-menu {
         right: 50%;
@@ -717,8 +730,169 @@ select {
 }
 
 @media (max-width: 480px) {
+
     /* Padding más reducido en 480px */
     .caja-blanca {
         padding: 15px !important;
+    }
+}
+
+/* =======================================================
+   FIX MÓVIL DEFINITIVO: HEADER + MENÚS LIBERADOS
+   ======================================================= */
+
+/* 1. Bloqueo maestro para el cuerpo de la página */
+html,
+body {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    scrollbar-gutter: auto !important;
+}
+
+/* 2. Forzamos que los bordes y márgenes se calculen HACIA ADENTRO */
+* {
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 768px) {
+
+    /* 3. Encapsulamos el header */
+    .site-header {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 15px 15px 5px 15px !important;
+        overflow: visible !important;
+    }
+
+    .header-container {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        margin-top: 25px !important;
+        position: relative !important;
+        /* 🔥 NUEVO: Esto ancla los menús a los extremos de la pantalla */
+    }
+
+    /* 4. Repartimos el espacio en 3 bloques exactos */
+    .header-left,
+    .header-center,
+    .header-right {
+        flex: 1 !important;
+        display: flex !important;
+    }
+
+    .header-left {
+        justify-content: flex-start !important;
+    }
+
+    .header-center {
+        justify-content: center !important;
+    }
+
+    .header-right {
+        justify-content: flex-end !important;
+    }
+
+    /* 5. Logo y avatares optimizados */
+    .custom-logo {
+        max-height: 35px !important;
+        width: auto !important;
+        margin: 0 !important;
+    }
+
+    .ham-trigger {
+        padding: 8px !important;
+        gap: 0 !important;
+    }
+
+    .ham-label,
+    .user-welcome-text {
+        display: none !important;
+    }
+
+    .user-avatar-trigger {
+        padding: 0 !important;
+    }
+
+    .custom-avatar {
+        width: 35px !important;
+        height: 35px !important;
+        margin: 0 !important;
+    }
+
+    /* 6. Contenedor de la página */
+    #main-content-wrapper {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+        overflow-x: hidden !important;
+    }
+
+    /* ===================================================
+       🔥 LA MAGIA PARA LIBERAR LOS MENÚS DESPLEGABLES 🔥
+       =================================================== */
+
+    /* Importante: El contenedor padre debe permitir que los hijos ignoren las columnas */
+    .header-container {
+        position: relative !important;
+    }
+
+    .custom-ham-wrapper,
+    .user-profile-wrapper {
+        position: static !important;
+    }
+
+    /* Menú Izquierdo (Hamburguesa) */
+    .ham-dropdown {
+        position: absolute !important;
+        top: 100% !important;
+        left: 0 !important;
+        right: auto !important;
+        /* Evita que se estire a la derecha */
+        width: 240px !important;
+        max-width: 80vw !important;
+        margin: 0 !important;
+        transform: none !important;
+        /* Elimina desplazamientos por JS o animaciones */
+    }
+
+    /* Menú Derecho (Perfil de Usuario) */
+    .user-dropdown-menu {
+        position: absolute !important;
+        top: 100% !important;
+        right: 0 !important;
+        /* Se pega al borde derecho de la pantalla */
+        left: auto !important;
+        /* Bloquea cualquier empuje desde la izquierda */
+        width: 240px !important;
+        max-width: 80vw !important;
+        margin: 0 !important;
+        transform: none !important;
+        /* Bloquea cualquier movimiento lateral */
+    }
+
+    /* Ajuste para la flechita del menú derecho si existe */
+    .dropdown-arrow {
+        right: 15px !important;
+        left: auto !important;
+    }
+
+    /* =======================================================
+       🍎 FIX iOS SAFARI: PREVENIR AUTO-ZOOM
+       ======================================================= */
+    input,
+    textarea,
+    select,
+    .swal2-input,
+    .admin-fields input {
+        font-size: 16px !important;
+        /* El número mágico para que iOS no haga zoom */
     }
 }
