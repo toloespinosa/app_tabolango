@@ -102,12 +102,49 @@ function procesarClientesAgrupados(clientesRaw) {
     listaClientesMaster = Object.values(grupos);
 }
 
+
+// --- LÓGICA DE CLIENTES ---
+function procesarClientesAgrupados(clientesRaw) {
+    const clientesActivos = clientesRaw.filter(c => c.activo == "1");
+
+    const grupos = clientesActivos.reduce((acc, curr) => {
+        const nombreBase = curr.cliente.split(' - ')[0].trim();
+        if (!acc[nombreBase]) {
+            acc[nombreBase] = { nombreRaiz: nombreBase, sucursales: [], dataGlobal: null, total_grupo: 0 };
+        }
+        acc[nombreBase].sucursales.push(curr);
+
+        // Sumamos las compras (Viene del PHP)
+        acc[nombreBase].total_grupo += parseFloat(curr.total_comprado || 0);
+
+        if (curr.es_global == 1 || curr.es_global == "1" || !curr.cliente.includes(' - ')) {
+            acc[nombreBase].dataGlobal = curr;
+        }
+        return acc;
+    }, {});
+
+    // Convertimos el objeto en Array
+    listaClientesMaster = Object.values(grupos);
+
+    // 🔥 Ordenamos los grupos de clientes de mayor a menor venta
+    listaClientesMaster.sort((a, b) => b.total_grupo - a.total_grupo);
+
+    // 🔥 Ordenamos las sucursales internamente de mayor a menor venta
+    listaClientesMaster.forEach(grupo => {
+        grupo.sucursales.sort((a, b) => parseFloat(b.total_comprado || 0) - parseFloat(a.total_comprado || 0));
+    });
+}
+
 // --- LÓGICA DE PRODUCTOS ---
 function procesarProductosAgrupados(productosRaw) {
     const grupos = {};
     productosRaw.forEach(curr => {
         const productoNombre = curr.producto || "Sin Nombre";
-        const variedad = (curr.Variedad && curr.Variedad.trim() !== "") ? curr.Variedad.trim() : "";
+
+        // 🔥 CORRECCIÓN: Leemos "variedad" en minúscula (como viene de la BD)
+        const valorVariedad = curr.variedad || curr.Variedad || "";
+        const variedad = (valorVariedad.trim() !== "") ? valorVariedad.trim() : "";
+
         const calibre = curr.calibre || "S/C";
         const formato = curr.formato || "Unidad";
 
@@ -129,6 +166,7 @@ function procesarProductosAgrupados(productosRaw) {
     });
     listaProductosMaster = Object.values(grupos);
 }
+
 
 // --- FUNCIONES EXPUESTAS A WINDOW (Para que los onclick funcionen) ---
 

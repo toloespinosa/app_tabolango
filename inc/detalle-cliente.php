@@ -66,6 +66,11 @@ if ($action === 'list_clients') {
     // 3. Posición en el ranking según ventas totales
     $sql = "SELECT c.*, cat.nombre_categoria as nombre_categoria_cliente,
             
+            /* 🔥 NUEVO: Venta histórica total (Para ordenar y agrupar en JS) */
+            (SELECT COALESCE(SUM(pa.total_venta), 0) FROM pedidos_activos pa 
+             WHERE pa.id_interno_cliente = c.id_interno 
+             AND pa.estado = 'Entregado') as total_comprado,
+
             /* Cálculo de Venta Mes Actual */
             (SELECT SUM(pa.total_venta) FROM pedidos_activos pa 
              WHERE pa.id_interno_cliente = c.id_interno 
@@ -89,7 +94,7 @@ if ($action === 'list_clients') {
             FROM clientes c
             LEFT JOIN categorias_clientes cat ON c.tipo_cliente = cat.id_categoria
             WHERE c.activo = 1 
-            ORDER BY c.cliente ASC";
+            ORDER BY total_comprado DESC, c.cliente ASC";
             
     $res = $conn->query($sql);
     $clients = []; 
