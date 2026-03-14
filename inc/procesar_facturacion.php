@@ -454,4 +454,5 @@ $archivos_caf = glob($dir_certificados . "*caf_" . $codigo_dte . "*.xml");
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
     exit;
 }
+/*para probar*/
 ?>
