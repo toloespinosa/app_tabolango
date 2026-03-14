@@ -65,7 +65,19 @@ try {
     $INICIO_CAF_FACTURA = 251; 
     $INICIO_CAF_GUIA    = 146; 
 
-    $path_certificado = __DIR__ . "/uploads/certificados/certificado.pfx"; 
+    // Blindaje de ruta para el Certificado Digital
+$rutas_cert = [
+    __DIR__ . "/uploads/certificados/certificado.pfx",      // Si se ejecuta en la raíz
+    __DIR__ . "/../uploads/certificados/certificado.pfx"    // Si se ejecuta dentro de /inc
+];
+
+$path_certificado = "";
+foreach ($rutas_cert as $ruta) {
+    if (file_exists($ruta)) {
+        $path_certificado = $ruta;
+        break;
+    }
+}
 
     $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
     $conn->set_charset("utf8");
@@ -249,7 +261,9 @@ try {
         if (!file_exists($path_certificado)) throw new Exception("Falta certificado.pfx"); 
         
         $path_caf_actual = "";
-        $archivos_caf = glob(__DIR__ . "/uploads/certificados/*caf_" . $codigo_dte . "*.xml");
+        // Busca en la raíz o un nivel arriba dependiendo de dónde esté el script
+$dir_certificados = is_dir(__DIR__ . "/uploads/certificados") ? __DIR__ . "/uploads/certificados/" : __DIR__ . "/../uploads/certificados/";
+$archivos_caf = glob($dir_certificados . "*caf_" . $codigo_dte . "*.xml");
         foreach ($archivos_caf as $archivo) {
             $xml_caf = @simplexml_load_file($archivo);
             if ($xml_caf && isset($xml_caf->CAF->DA->RNG)) {
