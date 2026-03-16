@@ -896,3 +896,111 @@ body {
         /* El número mágico para que iOS no haga zoom */
     }
 }
+
+/* ==========================================================================
+   APP MOBILE NAVIGATION BAR
+   ========================================================================== */
+.mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: none;
+    /* Oculto por defecto (Escritorio) */
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 5px 20px 5px;
+    /* Padding extra abajo para la barra de inicio de iOS */
+    z-index: 999999;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.05);
+}
+
+.nav-item-wrapper {
+    flex: 1;
+    text-align: center;
+}
+
+.nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none !important;
+    color: #888 !important;
+    transition: 0.3s ease;
+}
+
+.nav-icon {
+    font-size: 22px;
+    margin-bottom: 4px;
+    transition: transform 0.2s ease;
+}
+
+.nav-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* Estado Activo */
+.nav-item-wrapper.active .nav-link {
+    color: #E98C00 !important;
+}
+
+.nav-item-wrapper.active .nav-icon {
+    transform: translateY(-3px);
+}
+
+/* Botón Central Flotante */
+.nav-item-central-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    top: -20px;
+}
+
+.nav-item-central {
+    background: #0F4B29;
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none !important;
+    box-shadow: 0 8px 15px rgba(15, 75, 41, 0.4);
+    margin-bottom: 5px;
+    transition: transform 0.2s ease;
+}
+
+.nav-item-central:active {
+    transform: scale(0.95);
+}
+
+.nav-item-central .nav-icon {
+    font-size: 32px;
+    margin: 0;
+    line-height: 1;
+}
+
+.nav-item-central-wrapper .nav-label {
+    color: #0F4B29;
+    margin-top: -5px;
+}
+
+/* Solo mostrar en móviles y crear espacio al final de la página */
+@media (max-width: 768px) {
+    .mobile-nav {
+        display: flex;
+    }
+
+    body {
+        padding-bottom: 90px !important;
+        /* Evita que el contenido quede oculto bajo la barra */
+    }
+}

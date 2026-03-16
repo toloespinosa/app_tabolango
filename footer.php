@@ -46,7 +46,53 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<?php 
+// Solo mostramos la barra si el usuario está logueado
+if ( is_user_logged_in() ) : 
+    // Reutilizamos el rol que ya calculaste en el header
+    $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role() : 0;
+?>
+<nav class="mobile-nav">
+    <div class="nav-item-wrapper">
+        <a href="<?php echo home_url('/pedidos/'); ?>" class="nav-link">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Pedidos</span>
+        </a>
+    </div>
 
+    <div class="nav-item-wrapper">
+        <a href="<?php echo home_url('/entregados/'); ?>" class="nav-link">
+            <span class="nav-icon">✅</span>
+            <span class="nav-label">Entregados</span>
+        </a>
+    </div>
+
+    <?php if (in_array($rol_id, [1, 2, 4])) : ?>
+    <div class="nav-item-central-wrapper">
+        <a href="<?php echo home_url('/ingresar/'); ?>" class="nav-item-central">
+            <span class="nav-icon" style="color: #ffffff !important;">+</span>
+        </a>
+        <span class="nav-label">Nuevo</span>
+    </div>
+
+    <div class="nav-item-wrapper">
+        <a href="<?php echo home_url('/clientes/'); ?>" class="nav-link">
+            <span class="nav-icon">🤝</span>
+            <span class="nav-label">Clientes</span>
+        </a>
+    </div>
+    <?php endif; ?>
+
+    <?php if (in_array($rol_id, [1, 2, 3])) : ?>
+    <div class="nav-item-wrapper">
+        <a href="<?php echo home_url('/tus-autos/'); ?>" class="nav-link">
+            <span class="nav-icon">🚛</span>
+            <span class="nav-label">Mis Autos</span>
+        </a>
+    </div>
+    <?php endif; ?>
+</nav>
+<?php endif; ?>
 <?php wp_footer(); ?>
 </body>
 </html>

@@ -497,16 +497,82 @@ function guardarTokenEnBD(token, email) {
     });
 }
 
+// ==========================================================================
+// 8. ARRANQUE BLINDADO DE LA APP E INICIALIZACIÓN GLOBAL
+// ==========================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        if (window.APP_USER_DATA && !window.APP_USER_DATA.faltaTelefono) {
-            window.inicializarFirebasePush();
-        }
-    }, 1500);
-});
 
-document.addEventListener('DOMContentLoaded', () => {
+    // --- A. Preparar UI ---
     window.moverModalesAlBody();
-    window.verificarTelefonoFaltante(); // Arranca la verificación global
-});
 
+    // --- B. Verificamos Sesión Real (Seguridad) ---
+    const sesionReal = document.getElementById('session-email-bridge');
+    const emailInyectado = window.APP_USER_DATA && window.APP_USER_DATA.email !== '';
+    const isLoginPage = window.location.pathname.includes('login');
+
+    // SOLO disparamos los motores si hay un usuario real y NO estamos en el login
+    if ((sesionReal || emailInyectado) && !isLoginPage) {
+
+        // 1. Pide el teléfono si falta
+        window.verificarTelefonoFaltante();
+
+        // 2. Arranca Firebase silenciosamente
+        setTimeout(() => {
+            if (window.APP_USER_DATA && !window.APP_USER_DATA.faltaTelefono) {
+                window.inicializarFirebasePush();
+            }
+        }, 1500);
+
+    } else {
+        console.log("🔒 App bloqueada / Sin sesión. Firebase desactivado temporalmente.");
+    }
+
+    // ==========================================================================
+    // 9. NAVEGACIÓN MÓVIL, PWA Y HAPTIC FEEDBACK (VIBRACIÓN)
+    // ==========================================================================
+
+    // 1. Resaltar el ítem activo en la barra inferior
+    const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+    const allWrappers = document.querySelectorAll('.nav-item-wrapper, .nav-item-central-wrapper');
+
+    allWrappers.forEach(wrapper => {
+        const link = wrapper.querySelector('a');
+        if (link) {
+            const linkPath = new URL(link.href).pathname.replace(/\/+$/, "") || "/";
+            if (currentPath === linkPath) {
+                wrapper.classList.add('active');
+            }
+        }
+    });
+
+    // 2. Detección de PWA (Standalone mode)
+    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+        document.body.classList.add('is-pwa');
+    }
+
+    // 3. Efecto Haptic (Vibración sutil)
+    const navLinks = document.querySelectorAll('.nav-link, .nav-item-central');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function () {
+            if (navigator.vibrate) {
+                navigator.vibrate(15);
+            }
+        });
+    });
+
+    // 4. Fix para iOS: Mantener navegación dentro de la PWA
+    if ("standalone" in window.navigator && window.navigator.standalone) {
+        document.addEventListener("click", function (event) {
+            let target = event.target;
+            while (target && target.nodeName !== "A") {
+                target = target.parentNode;
+            }
+            if (target && "href" in target && target.href.indexOf(window.location.host) !== -1 && target.target !== "_blank") {
+                event.preventDefault();
+                setTimeout(() => {
+                    window.location.href = target.href;
+                }, 50);
+            }
+        }, false);
+    }
+});
