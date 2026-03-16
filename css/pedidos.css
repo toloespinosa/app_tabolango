@@ -1151,17 +1151,29 @@
         display: flex !important;
         flex-direction: column !important;
         padding: 20px 20px 0 20px !important;
-        /* Quitamos padding inferior para que asiente el botón */
+        min-height: 0 !important;
     }
 
-    /* 4. Lista de productos: Toma el centro y hace scroll si hay muchos */
+    /* 🔥 EL ESLABÓN PERDIDO: El padre de la lista también debe ser flexible */
+    .order-body {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        min-height: 0 !important;
+    }
+
+    /* 4. Lista de productos: 3 productos máximo y luego SCROLL */
     .products-list {
         flex: 1 !important;
-        height: auto !important;
-        min-height: 80px !important;
-        /* Asegura un área mínima para productos */
+        min-height: 0 !important;
+        /* 🔥 TOPE FÍSICO ESTRICTO: Cada producto mide ~50px. Con 160px caben 3 perfectos, el 4to hace scroll */
+        max-height: 160px !important;
         overflow-y: auto !important;
         margin-bottom: 10px !important;
+
+        /* Aseguramos que el scroll sea fluido en el celular */
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     /* 5. El precio se queda siempre visible por encima del botón */
