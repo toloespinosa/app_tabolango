@@ -404,6 +404,106 @@ window.verificarTelefonoFaltante = function () {
         });
     }
 };
+// ==========================================================================
+// 7. MOTOR DE NOTIFICACIONES PUSH (FIREBASE)
+// ==========================================================================
+window.inicializarFirebasePush = function () {
+    const userEmail = window.obtenerEmailLimpio();
+    if (!userEmail) return;
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp({
+            apiKey: "AIzaSyBRqOMYdwngqcZ0XbJORFaVGXRPUa22MPo",
+            authDomain: "tabolangoapp.firebaseapp.com",
+            projectId: "tabolangoapp",
+            messagingSenderId: "610098222900",
+            appId: "1:610098222900:web:ba00fb948ca020b888b761"
+        });
+    }
+
+    const messaging = firebase.messaging();
+    const vapidKeyConfig = 'BJUJJQeI7bfFxN5BipLROpCxX9J_kftfnj90VHJZhqEcoc8UnUYTZqyOrOUNUo9N5OX-EDJPj7CeI3-Tox9GeKk';
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then(function (registration) {
+                console.log('✅ Service Worker registrado con éxito.');
+
+                // --- NUEVO: Manejo de notificaciones en Foreground (App Abierta) ---
+                messaging.onMessage((payload) => {
+                    console.log('🔔 Mensaje recibido (Foreground):', payload);
+                    const titulo = payload.notification?.title || payload.data?.title || 'Nueva Notificación';
+                    const cuerpo = payload.notification?.body || payload.data?.body || '';
+                    const urlDestino = payload.data?.url || '/';
+
+                    registration.showNotification(titulo, {
+                        body: cuerpo,
+                        icon: 'https://tabolango.cl/wp-content/uploads/2025/12/Icono_ios.png',
+                        data: urlDestino
+                    });
+                });
+                // ------------------------------------------------------------------
+
+                if (Notification.permission === 'default') {
+                    Swal.fire({
+                        title: '🔔 Activar Notificaciones',
+                        text: 'Mantente al día con el estado de tus pedidos.',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, activar',
+                        cancelButtonText: 'Ahora no',
+                        customClass: window.swalConfig.customClass
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            solicitarTokenFCM(messaging, registration, userEmail, vapidKeyConfig);
+                        }
+                    });
+                } else if (Notification.permission === 'granted') {
+                    solicitarTokenFCM(messaging, registration, userEmail, vapidKeyConfig);
+                }
+            }).catch(function (err) {
+                console.log('❌ Error al registrar Service Worker:', err);
+            });
+    }
+};
+
+function solicitarTokenFCM(messaging, registration, userEmail, vapidKey) {
+    messaging.getToken({
+        vapidKey: vapidKey,
+        serviceWorkerRegistration: registration
+    }).then((currentToken) => {
+        if (currentToken) {
+            console.log('🔑 Token FCM generado:', currentToken);
+            guardarTokenEnBD(currentToken, userEmail);
+        } else {
+            console.log('No se pudo generar el token FCM.');
+        }
+    }).catch((err) => {
+        console.log('Error al pedir token:', err);
+    });
+}
+
+function guardarTokenEnBD(token, email) {
+    const fd = new FormData();
+    fd.append('action', 'guardar_token_fcm');
+    fd.append('token', token);
+    fd.append('email', email);
+
+    fetch(wpData.siteUrl + '/wp-admin/admin-ajax.php', {
+        method: 'POST',
+        body: fd
+    }).then(res => res.json()).then(data => {
+        if (data.status === 'success') console.log("💾 Token guardado en BD correctamente.");
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if (window.APP_USER_DATA && !window.APP_USER_DATA.faltaTelefono) {
+            window.inicializarFirebasePush();
+        }
+    }, 1500);
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     window.moverModalesAlBody();

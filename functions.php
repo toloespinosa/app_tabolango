@@ -294,4 +294,38 @@ function tabolango_guardar_mi_telefono() {
     }
 }
 add_filter( 'show_admin_bar', '__return_false' );
+
+/**
+ * NUEVO: GUARDAR TOKEN DE FIREBASE (FCM) DEL USUARIO
+ */
+add_action('wp_ajax_guardar_token_fcm', 'tabolango_guardar_token_fcm');
+function tabolango_guardar_token_fcm() {
+    $email = sanitize_email($_POST['email'] ?? '');
+    $token = sanitize_text_field($_POST['token'] ?? '');
+
+    if (!$email || !$token) {
+        wp_send_json(['status' => 'error', 'message' => 'Datos incompletos']);
+    }
+
+    $app_db = tabolango_get_app_db();
+    
+    // Verificamos si este token exacto ya existe para no duplicarlo
+    $existe = $app_db->get_var($app_db->prepare("SELECT id FROM app_fcm_tokens WHERE token = %s", $token));
+
+    if (!$existe) {
+        $app_db->insert('app_fcm_tokens', [
+            'email' => $email,
+            'token' => $token,
+            'fecha_registro' => current_time('mysql'),
+            'notify_pedido_creado' => 1,
+            'notify_cambio_estado' => 1,
+            'notify_pedido_entregado' => 1,
+            'notify_pedido_editado' => 1,
+            'notify_doc_por_vencer' => 1,
+            'notify_doc_vencido' => 1
+        ]);
+    }
+
+    wp_send_json(['status' => 'success']);
+}
 ?>

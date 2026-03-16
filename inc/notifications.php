@@ -132,10 +132,11 @@ function obtenerTokenGoogle() {
     $es_local = (strpos($host, '.local') !== false || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false);
 
     if ($es_local) {
+        // En Local: Lo busca en la misma carpeta (inc/)
         $ruta = __DIR__ . '/service-account.json';
     } else {
-        $document_root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-        $ruta = $document_root . '/service-account.json';
+        // En PRODUCCIÓN: Ruta absoluta a tu bóveda segura (Fuera de Git y del acceso Web)
+        $ruta = '/home/tabolang/firebase_keys/service-account.json';
     }
 
     if (!file_exists($ruta)) {
