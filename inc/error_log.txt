@@ -30,3 +30,4 @@
 2026-03-14 02:48:04 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
 2026-03-14 02:51:20 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
 2026-03-14 02:58:52 | Cat: notify_pedido_editado | Token ID: 64 | Resp: 200
+2026-03-16 18:59:04 | Cat: notify_pedido_creado | ID: 64 | Resp: 404 | URL: http://tabolango-app.local/
