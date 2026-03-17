@@ -1,6 +1,6 @@
 <?php
 require_once 'auth.php';
-// api_gestion_folios.php - V6.1: RUTAS SINCRONIZADAS CON PROCESAR FACTURACIÓN
+// api_gestion_folios.php - V6.2: RUTAS ABSOLUTAS CORRECTAS
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
@@ -11,9 +11,9 @@ error_reporting(E_ALL);
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
 
-// Sincronización de ruta con Procesar Facturación
-// En WordPress/LocalWP, __DIR__ suele ser la carpeta 'inc' dentro del tema
-$ruta_public = dirname(__DIR__); // Sube un nivel desde 'inc' hacia la raíz del tema
+// Usamos DOCUMENT_ROOT para apuntar a la raíz del sitio (public_html o tu htdocs local)
+// Esto asegura que /uploads/ siempre sea el de la raíz del dominio
+$ruta_public = $_SERVER['DOCUMENT_ROOT']; 
 $ruta_base_uploads = rtrim($ruta_public, '/') . '/uploads/';
 
 // --- CONFIGURACIÓN DE RUTAS ---
