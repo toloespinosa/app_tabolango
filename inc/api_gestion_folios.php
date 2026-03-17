@@ -1,28 +1,40 @@
 <?php
 require_once 'auth.php';
-// api_gestion_folios.php - V6: MULTIRANGO + AUTOLIMPIEZA + MODO SIMULACIÓN LOCAL
+// api_gestion_folios.php - V6.1: RUTAS SINCRONIZADAS CON PROCESAR FACTURACIÓN
 
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
-// 🔥 DETECCIÓN DE ENTORNO 🔥
+// 🔥 DETECCIÓN DE ENTORNO Y RUTAS CRÍTICAS 🔥
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
 
-// --- CONFIGURACIÓN ---
+// Sincronización de ruta con Procesar Facturación
+// En WordPress/LocalWP, __DIR__ suele ser la carpeta 'inc' dentro del tema
+$ruta_public = dirname(__DIR__); // Sube un nivel desde 'inc' hacia la raíz del tema
+$ruta_base_uploads = rtrim($ruta_public, '/') . '/uploads/';
+
+// --- CONFIGURACIÓN DE RUTAS ---
+$CERT_PATH = $ruta_base_uploads . "certificados/certificado.pfx";
+$DIR_CAF   = $ruta_base_uploads . "certificados/";
+
+// --- CONFIGURACIÓN API ---
 $API_KEY     = "7165-N580-6393-2899-7690"; 
 $RUT_EMPRESA = "77121854-7";
 $RUT_CERT    = "8201627-9";
 $CERT_PASS   = "Sofia2020";
-$CERT_PATH   = __DIR__ . "/uploads/certificados/certificado.pfx";
-$DIR_CAF     = __DIR__ . "/uploads/certificados/";
 
 try {
-    // Ya NO necesitamos crear $conn aquí porque auth.php lo hizo en la línea 2.
+    // Verificación de conexión (heredada de auth.php)
     if (!isset($conn) || $conn->connect_error) {
-        throw new Exception("Error de conexión a la BD heredada de auth.php");
+        throw new Exception("Error de conexión a la BD heredada");
+    }
+
+    // Validar que la carpeta de certificados exista para evitar errores de glob()
+    if (!is_dir($DIR_CAF)) {
+        mkdir($DIR_CAF, 0755, true);
     }
 
     $action = $_GET['action'] ?? 'status';
@@ -50,10 +62,14 @@ try {
     } elseif ($action == 'check_sii') {
         $tipo = $_GET['tipo'];
 
-        // 🔥 BLINDAJE LOCAL 🔥
         if ($is_local) {
             echo json_encode(['status' => 'success', 'cantidad' => 999, 'message' => 'Simulación Local']);
             exit;
+        }
+
+        // Validación de existencia de certificado antes de llamar al SII
+        if (!file_exists($CERT_PATH)) {
+            throw new Exception("Certificado no encontrado en: " . $CERT_PATH);
         }
 
         $url = "https://servicios.simpleapi.cl/api/folios/get/$tipo/";
@@ -66,7 +82,10 @@ try {
         
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, ['input' => $payload, 'files' => new CURLFile($CERT_PATH, 'application/x-pkcs12', 'certificado.pfx')]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, [
+            'input' => $payload, 
+            'files' => new CURLFile($CERT_PATH, 'application/x-pkcs12', 'certificado.pfx')
+        ]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: " . $API_KEY]);
         $res = curl_exec($ch);
@@ -76,7 +95,7 @@ try {
         if (is_numeric($res)) {
             echo json_encode(['status' => 'success', 'cantidad' => (int)$res]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => "Respuesta inesperada del SII: " . $res]);
+            echo json_encode(['status' => 'error', 'message' => "Respuesta SII: " . $res]);
         }
 
     } elseif ($action == 'descargar_caf') {
