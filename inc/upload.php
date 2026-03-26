@@ -5,8 +5,14 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-if (file_exists('vendor/autoload.php')) {
-    require_once 'vendor/autoload.php';
+// 🔥 FIX CRÍTICO: Enrutar el Autoload dinámicamente a la raíz del tema (app_tabolango)
+$autoload_path = dirname(__DIR__) . '/vendor/autoload.php';
+
+if (file_exists($autoload_path)) {
+    require_once $autoload_path;
+} else {
+    // Si vuelve a fallar, ahora el servidor te lo gritará en el log de errores
+    error_log("⚠️ ERROR CRÍTICO PDF: No se encontró el autoload de Composer en: " . $autoload_path);
 }
 
 use PHPMailer\PHPMailer\PHPMailer;
