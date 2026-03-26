@@ -28,18 +28,38 @@ if (class_exists('\setasign\Fpdi\Fpdi') && class_exists('FPDF')) {
     $pdf_libs_disponibles = true;
 }
 
-// 🔥 URL Y RUTAS FÍSICAS ABSOLUTAS (Detecta Local/Producción automáticamente) 🔥
-$protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) ? "https" : "http";
-
-// A. RUTA FÍSICA (Para leer y guardar en el disco duro)
+// 🔥 MOTOR DE RUTAS MULTI-ENTORNO (ERP / WEB / LOCAL) 🔥
+$host = $_SERVER['HTTP_HOST'] ?? '';
 $wp_root = substr(__DIR__, 0, strpos(__DIR__, 'wp-content'));
-$RUTA_UPLOADS_FISICA = $wp_root . 'uploads/';
 
-// B. URL PÚBLICA (Para guardar en la BD y mostrar en la App)
-$script_path = dirname($_SERVER['SCRIPT_NAME']);
-$ruta_base_url = substr($script_path, 0, strpos($script_path, 'wp-content'));
-$DOMINIO_RAIZ = $protocolo . "://" . $_SERVER['HTTP_HOST'] . rtrim($ruta_base_url, '/') . '/';
-$URL_UPLOADS = $DOMINIO_RAIZ . 'uploads/';
+if (strpos($host, 'tabolango.cl') !== false) {
+    // ==========================================
+    // ESTAMOS EN PRODUCCIÓN (ERP o WEB PRINCIPAL)
+    // ==========================================
+    // Forzamos a que TODO se lea y se guarde en la carpeta principal (public_html)
+    $RUTA_UPLOADS_FISICA = '/home/tabolang/public_html/uploads/';
+    
+    // Forzamos a que las URLs apunten al dominio principal para no romper enlaces
+    $DOMINIO_RAIZ = 'https://tabolango.cl/';
+    $URL_UPLOADS = 'https://tabolango.cl/uploads/';
+    
+    // Mantenemos esta variable por si quedó alguna función usándola
+    $DOMINIO_BASE = 'https://tabolango.cl/'; 
+    
+} else {
+    // ==========================================
+    // ESTAMOS EN LOCALHOST (MAMP / LocalWP / etc)
+    // ==========================================
+    $RUTA_UPLOADS_FISICA = $wp_root . 'uploads/';
+    
+    $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+    $script_path = dirname($_SERVER['SCRIPT_NAME']);
+    $ruta_base_url = substr($script_path, 0, strpos($script_path, 'wp-content'));
+    
+    $DOMINIO_RAIZ = $protocolo . "://" . $host . rtrim($ruta_base_url, '/') . '/';
+    $URL_UPLOADS = $DOMINIO_RAIZ . 'uploads/';
+    $DOMINIO_BASE = $DOMINIO_RAIZ;
+}
 
 // --- 1. ELIMINAR ---
 if ($action === 'delete_document') {
