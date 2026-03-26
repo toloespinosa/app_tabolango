@@ -6,7 +6,7 @@ get_header();
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 <div id="session-email-bridge" style="display:none !important;">[user_email_js]</div>
-<link rel="stylesheet" href="<?php echo get_stylesheet_directory_uri();?>/css/<?php global $post; echo $post->post_name; ?>.css?v=<?php echo time(); ?>"></script>
+
 <div class="operario-container">
     <div id="loading-box">
         <div class="spinner"></div>
@@ -172,8 +172,6 @@ get_header();
         <button class="btn-secondary" onclick="location.reload()">Escanear otro</button>
     </div> 
 </div>
-<script src="<?php echo get_stylesheet_directory_uri(); ?>/js/global.js?v=<?php echo time(); ?>"></script>
-<script src="<?php echo get_stylesheet_directory_uri(); ?>/js/<?php global $post; echo $post->post_name; ?>.js?v=<?php echo time(); ?>"></script>
 
 
 <?php
