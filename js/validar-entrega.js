@@ -94,9 +94,9 @@
         finalCanvas.height = ALTO_FINAL;
         const fCtx = finalCanvas.getContext('2d');
 
-        // (Opcional) Si quieres ver el fondo blanco en el PDF, descomenta esto:
-        // fCtx.fillStyle = "white";
-        // fCtx.fillRect(0,0, ANCHO_FINAL, ALTO_FINAL);
+        //(Opcional) Si quieres ver el fondo blanco en el PDF, descomenta esto:
+        fCtx.fillStyle = "white";
+        fCtx.fillRect(0, 0, ANCHO_FINAL, ALTO_FINAL);
 
         // Dibujamos el recorte original -> Escalado y Centrado en el nuevo canvas
         fCtx.drawImage(c,
@@ -456,7 +456,7 @@
             document.getElementById('indicador-firma').style.display = 'block';
             document.getElementById('btn-pre-enviar').disabled = false;
             document.getElementById('btn-pre-enviar').style.opacity = '1';
-        }, 'image/png');
+        }, 'image/jpeg');
     };
 
     window.abrirConfirmacion = function () {

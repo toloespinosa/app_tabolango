@@ -393,7 +393,24 @@ if (isset($_POST['qr_token'])) {
                         } catch (Exception $e) { error_log("Mail Error: " . $mail->ErrorInfo); }
                     }
 
-                } catch (Exception $e) { error_log($e->getMessage()); }
+                } catch (Exception $e) { 
+                    error_log($e->getMessage()); 
+                    echo json_encode(["status" => "error", "message" => "Falla interna al crear el PDF: " . $e->getMessage()]);
+                    exit;
+                }
+            } else {
+                // 🔥 EL SUERO DE LA VERDAD: Si falla antes del try, que nos diga exactamente por qué 🔥
+                $motivo_falla = "";
+                if (empty($pedido['url_guia'])) {
+                    $motivo_falla = "El pedido no tiene una guía de despacho asociada en la BD.";
+                } elseif (!file_exists($ruta_fisica_guia)) {
+                    $motivo_falla = "No se encuentra el PDF físico en el servidor. Buscando en: " . $ruta_fisica_guia;
+                } elseif (!$pdf_libs_disponibles) {
+                    $motivo_falla = "La librería FPDI no cargó. Revisa la ruta del vendor/autoload.php";
+                }
+                
+                echo json_encode(["status" => "error", "message" => "Falla al crear PDF: " . $motivo_falla]);
+                exit; // Detenemos todo para que puedas ver el error en la pantalla de la App
             }
             if(file_exists($firma_path)) unlink($firma_path);
         }
