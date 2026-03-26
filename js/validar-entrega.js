@@ -543,13 +543,92 @@
         const mail = document.getElementById('input-email-final').value.trim();
         if (!mail || !mail.includes('@')) { alert("Correo inválido"); return; }
 
-        document.getElementById('btn-enviar-final').disabled = true;
-        document.getElementById('btn-enviar-final').innerText = "Enviando...";
+        document.getElementById('email-modal').style.display = 'none'; // Ocultar el modal de inmediato
         enviarEntregaDefinitiva(mail);
     }
 
     window.finalizarSinCorreo = function () {
+        document.getElementById('email-modal').style.display = 'none'; // Ocultar el modal de inmediato
         enviarEntregaDefinitiva("SKIP");
+    }
+
+    async function enviarDatosGenerico(forzarAdmin, extraData = null) {
+        try {
+            // 🔥 1. LEVANTAR PANTALLA DE CARGA BLOQUEANTE 🔥
+            Swal.fire({
+                title: 'Procesando entrega...',
+                html: 'Generando documento firmado y enviando correo.<br><b>Por favor, no cierres esta pantalla.</b>',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            const coords = await obtenerGPS();
+            const estOriginal = normalizarTexto(pedidoActual.estado);
+            const fd = new FormData();
+
+            fd.append('qr_token', token);
+            fd.append('lat_gps', coords.lat || '');
+            fd.append('lng_gps', coords.lng || '');
+
+            if (forzarAdmin) fd.append('forzado_admin', '1');
+
+            if (extraData) {
+                fd.append('nombre_receptor', extraData.nombre);
+                fd.append('rut_receptor', extraData.rut);
+                fd.append('observaciones', extraData.obs);
+                fd.append('img_firma', extraData.firma, "firma.png");
+                if (extraData.email_envio) fd.append('email_envio', extraData.email_envio);
+
+                const foto = document.getElementById('foto-input').files[0];
+                if (foto) {
+                    const fotoBlob = await comprimirImagen(foto, 1200, 0.7);
+                    fd.append('foto', fotoBlob, "evidencia.jpg");
+                }
+            }
+
+            const res = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
+            const textResponse = await res.text();
+
+            let result;
+            try {
+                const jsonStart = textResponse.indexOf('{');
+                const jsonEnd = textResponse.lastIndexOf('}');
+                if (jsonStart !== -1 && jsonEnd !== -1) {
+                    const jsonString = textResponse.substring(jsonStart, jsonEnd + 1);
+                    result = JSON.parse(jsonString);
+                } else { throw new Error("Invalido"); }
+            } catch (e) {
+                Swal.close(); // Ocultar carga si falla
+                console.error("Error parseando:", textResponse);
+                Swal.fire('Error', 'El servidor devolvió una respuesta inesperada.', 'error');
+                return;
+            }
+
+            Swal.close(); // 🔥 2. OCULTAR PANTALLA DE CARGA AL TERMINAR 🔥
+
+            if (result.status === 'success') {
+                document.getElementById('custom-modal').style.display = 'none';
+                document.getElementById('firma-modal').style.display = 'none';
+                document.getElementById('email-modal').style.display = 'none';
+
+                if (estOriginal.includes('prepara')) {
+                    pedidoActual.estado = "En despacho";
+                    window.abrirGpsModal();
+                } else {
+                    window.finalizarExito();
+                }
+            } else {
+                Swal.fire('Atención', result.message || "Error al procesar", 'warning');
+            }
+        } catch (e) {
+            Swal.close(); // Ocultar carga si falla la red
+            console.error("Error en envío:", e);
+            Swal.fire('Error de Conexión', 'No se pudo conectar con el servidor. Revisa tu internet e intenta de nuevo.', 'error');
+        }
     }
 
     async function enviarDatosGenerico(forzarAdmin, extraData = null) {
