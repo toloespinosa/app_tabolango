@@ -576,3 +576,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }, false);
     }
 });
+
+window.abrirCopecEmpresa = function () {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isiOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    const isAndroid = /android/i.test(userAgent);
+
+    // Configuración de URLs
+    const appScheme = "copecempresa://";
+    const playStoreUrl = "https://play.google.com/store/apps/details?id=cl.copec.muevoempresa";
+    const appStoreUrl = "https://apps.apple.com/cl/app/copec-empresa/id1480375224";
+
+    // Registramos el momento del intento
+    const start = Date.now();
+
+    // Intentar abrir la app
+    window.location.href = appScheme;
+
+    // Lógica de respaldo (Fallback)
+    // Aumentamos a 2.5 segundos para dar tiempo al usuario de ver el mensaje del sistema
+    setTimeout(function () {
+        // Si el usuario aceptó abrir la app, el navegador entra en pausa.
+        // Si al volver (o si nunca se fue) han pasado menos de 2.6s, 
+        // significa que la app NO se abrió y procedemos a la tienda.
+        if (Date.now() - start < 2600) {
+            if (!document.hidden) {
+                if (isiOS) {
+                    window.location.href = appStoreUrl;
+                } else if (isAndroid) {
+                    window.location.href = playStoreUrl;
+                }
+            }
+        }
+    }, 2500);
+};

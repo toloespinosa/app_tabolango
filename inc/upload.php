@@ -22,13 +22,18 @@ if (class_exists('\setasign\Fpdi\Fpdi') && class_exists('FPDF')) {
     $pdf_libs_disponibles = true;
 }
 
-// 🔥 URL BASE DINÁMICA: Detecta Local, Producción o ERP automáticamente 🔥
+// 🔥 URL Y RUTAS FÍSICAS ABSOLUTAS (Detecta Local/Producción automáticamente) 🔥
 $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) ? "https" : "http";
-$ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-$DOMINIO_BASE = $protocolo . "://" . $_SERVER['HTTP_HOST'] . $ruta_directorio . "/";
 
-$action = $_POST['action'] ?? '';
-$id_pedido = $_POST['id_pedido'] ?? '';
+// A. RUTA FÍSICA (Para leer y guardar en el disco duro)
+$wp_root = substr(__DIR__, 0, strpos(__DIR__, 'wp-content'));
+$RUTA_UPLOADS_FISICA = $wp_root . 'uploads/';
+
+// B. URL PÚBLICA (Para guardar en la BD y mostrar en la App)
+$script_path = dirname($_SERVER['SCRIPT_NAME']);
+$ruta_base_url = substr($script_path, 0, strpos($script_path, 'wp-content'));
+$DOMINIO_RAIZ = $protocolo . "://" . $_SERVER['HTTP_HOST'] . rtrim($ruta_base_url, '/') . '/';
+$URL_UPLOADS = $DOMINIO_RAIZ . 'uploads/';
 
 // --- 1. ELIMINAR ---
 if ($action === 'delete_document') {
@@ -81,7 +86,7 @@ if ($action === 'upload_guia_despacho') {
         
         if (move_uploaded_file($_FILES['foto_guia']['tmp_name'], $folder . $filename)) {
             // 🔥 FIX: Guardado con dominio dinámico
-            $url_final = $DOMINIO_BASE . $folder . $filename;
+$url_final = $DOMINIO_RAIZ . $folder . $filename;
         } else {
             echo json_encode(["status" => "error", "message" => "Error al guardar archivo"]);
             exit;
@@ -143,8 +148,8 @@ if ($action === 'update_admin_order') {
         if (!file_exists($carpeta)) { mkdir($carpeta, 0777, true); }
         $nombre_archivo = "fact_" . $id_pedido . "_" . time() . "." . $ext;
         if (move_uploaded_file($tmp_path, $carpeta . $nombre_archivo)) {
-            // 🔥 FIX: Guardado con dominio dinámico
-            $url_final = $DOMINIO_BASE . $carpeta . $nombre_archivo;
+           // 🔥 FIX: Guardado con dominio dinámico
+$url_final = $DOMINIO_RAIZ . $carpeta . $nombre_archivo;
         }
     }
     
@@ -235,31 +240,32 @@ if (isset($_POST['qr_token'])) {
 
         // Subir foto evidencia
         if (isset($_FILES['foto'])) {
-            $folder = 'uploads/evidencia_entrega/';
-            if (!file_exists($folder)) mkdir($folder, 0777, true);
+            $folder_evidencia_fisica = $RUTA_UPLOADS_FISICA . 'evidencia_entrega/';
+            if (!file_exists($folder_evidencia_fisica)) mkdir($folder_evidencia_fisica, 0777, true);
             $filename = "ev_" . $id_p . "_" . time() . ".jpg";
-            if (move_uploaded_file($_FILES['foto']['tmp_name'], $folder . $filename)) {
-                $ruta_foto_evidencia = $folder . $filename;
-                // 🔥 FIX: Evidencia con dominio dinámico
-                $foto_evidencia_url = $DOMINIO_BASE . $folder . $filename;
+            if (move_uploaded_file($_FILES['foto']['tmp_name'], $folder_evidencia_fisica . $filename)) {
+                $ruta_foto_evidencia = $folder_evidencia_fisica . $filename;
+                // 🔥 URL pública correcta independiente de dónde esté el PHP
+                $foto_evidencia_url = $URL_UPLOADS . 'evidencia_entrega/' . $filename;
             }
         }
 
         // Generar PDF Firmado
         if (isset($_FILES['img_firma']) && !empty($pedido['url_guia'])) {
-            $folder_firmas = 'uploads/temp_firmas/';
-            if (!file_exists($folder_firmas)) mkdir($folder_firmas, 0777, true);
-            $firma_path = $folder_firmas . "s_" . $id_p . "_" . time() . ".png";
+            $folder_firmas_fisico = $RUTA_UPLOADS_FISICA . 'temp_firmas/';
+            if (!file_exists($folder_firmas_fisico)) mkdir($folder_firmas_fisico, 0777, true);
+            $firma_path = $folder_firmas_fisico . "s_" . $id_p . "_" . time() . ".png"; // Cambia a .jpg si actualizaste el JS
             move_uploaded_file($_FILES['img_firma']['tmp_name'], $firma_path);
 
-            // 🔥 FIX CRÍTICO: Buscar archivo independientemente del dominio
+            // 🔥 FIX CRÍTICO: Buscar el PDF original usando la ruta física absoluta
             $partes_guia = explode('uploads/', $pedido['url_guia']);
-            $ruta_relativa_guia = (count($partes_guia) > 1) ? 'uploads/' . end($partes_guia) : '';
+            $ruta_fisica_guia = (count($partes_guia) > 1) ? $RUTA_UPLOADS_FISICA . end($partes_guia) : '';
             
-            if (!empty($ruta_relativa_guia) && file_exists($ruta_relativa_guia) && $pdf_libs_disponibles) {
+            // Ahora sí el file_exists dará TRUE
+            if (!empty($ruta_fisica_guia) && file_exists($ruta_fisica_guia) && $pdf_libs_disponibles) {
                 try {
                     $pdf = new \setasign\Fpdi\Fpdi();
-                    $total_paginas = $pdf->setSourceFile($ruta_relativa_guia);
+                    $total_paginas = $pdf->setSourceFile($ruta_fisica_guia);
                     $templateId = $pdf->importPage($total_paginas);
                     $size = $pdf->getTemplateSize($templateId);
                     $orientation = $size['width'] > $size['height'] ? 'L' : 'P';
@@ -268,7 +274,7 @@ if (isset($_POST['qr_token'])) {
                     $pdf->useTemplate($templateId);
 
                     // Estampar "Entregado"
-                    $logo_local = 'media/logo_tabolango.png';
+                    $logo_local = $wp_root . 'media/logo_tabolango.png'; // Ruta absoluta al logo
                     $stampX = $size['width'] - 65; 
                     $stampY = $size['height'] - 35; 
                     
@@ -312,15 +318,16 @@ if (isset($_POST['qr_token'])) {
                         $pdf->MultiCell(90, 5, $texto_obs); 
                     }
 
-                    $folder_final = 'uploads/guia_firmada/';
-                    if (!file_exists($folder_final)) mkdir($folder_final, 0777, true);
+                    // Guardar PDF Final usando ruta física absoluta
+                    $folder_final_fisico = $RUTA_UPLOADS_FISICA . 'guia_firmada/';
+                    if (!file_exists($folder_final_fisico)) mkdir($folder_final_fisico, 0777, true);
                     $nombre_pdf_final = "recepcion_" . $id_p . "_" . time() . ".pdf";
-                    $ruta_pdf_final = $folder_final . $nombre_pdf_final;
+                    $ruta_pdf_fisica = $folder_final_fisico . $nombre_pdf_final;
                     
-                    $pdf->Output('F', $ruta_pdf_final);
-                    // 🔥 FIX: Dominio dinámico para el PDF de recepción firmado
-                    $pdf_firmado_url = $DOMINIO_BASE . $ruta_pdf_final;
-                    $ruta_pdf_fisica = $ruta_pdf_final;
+                    $pdf->Output('F', $ruta_pdf_fisica);
+                    
+                    // Asignar URL Pública para la BD
+                    $pdf_firmado_url = $URL_UPLOADS . 'guia_firmada/' . $nombre_pdf_final;
 
                     // Enviar Email al Cliente
                     if (!empty($email_final) && $email_final !== 'SKIP' && filter_var($email_final, FILTER_VALIDATE_EMAIL)) {
@@ -464,7 +471,7 @@ if ($action === 'upload_evidencia_manual') {
         
         if (move_uploaded_file($_FILES['foto']['tmp_name'], $folder . $filename)) {
             // 🔥 FIX: Dominio dinámico para carga manual
-            $url = $DOMINIO_BASE . $folder . $filename;
+$url = $DOMINIO_RAIZ . $folder . $filename;
             $stmt = $conn->prepare("UPDATE pedidos_activos SET evidencia_entrega = ? WHERE id_pedido = ?");
             $stmt->bind_param("ss", $url, $id_pedido);
             echo json_encode(["status" => $stmt->execute() ? "success" : "error"]);

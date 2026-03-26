@@ -7,6 +7,18 @@ get_header();
     <h2 style="margin-top: 10px; margin-bottom: 40px; color: #ffffff !important; text-align: center; font-weight: 800;">
         Gestión de Flota
     </h2>
+
+    <div style="max-width: 1000px; margin: -20px auto 30px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 0 20px;">
+        <div class="action-card card-azul" onclick="abrirCopecEmpresa()" style="padding: 20px 15px; cursor: pointer; border-bottom-color: #ed1c24;">
+            <div class="icon-circle bg-azul" style="width: 50px; height: 50px; font-size: 20px; margin-bottom: 10px; background-color: #004a99;">
+                <i class="fa-solid fa-gas-pump"></i>
+            </div>
+            <div class="card-info">
+                <h3 style="font-size: 14px;">Copec Empresa</h3>
+                <p style="font-size: 10px;">Cargar Combustible</p>
+            </div>
+        </div>
+    </div>
     
     <div id="admin-controls">
         <div class="admin-badge">
