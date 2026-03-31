@@ -112,10 +112,18 @@ try {
     $PATH_CERT = $ruta_base_uploads . "certificados/certificado.pfx"; 
     // -----------------------------------------------------------------------
 
-    // 🔥 URL BASE DINÁMICA: Para evitar romper enlaces al migrar al ERP
-    $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
-    $ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-    $DOMINIO_BASE = $protocolo . "://" . $_SERVER['HTTP_HOST'] . $ruta_directorio . "/";
+    // --- FIX: DOMINIO BASE LIMPIO (Sin rutas de WordPress) ---
+    $host_actual_url = $_SERVER['HTTP_HOST'] ?? '';
+    if (strpos($host_actual_url, 'tabolango.cl') !== false) {
+        // En producción (ERP o normal), forzamos la URL raíz limpia
+        $DOMINIO_BASE = "https://tabolango.cl/";
+    } else {
+        // En LocalWP mantenemos la ruta dinámica para que te siga funcionando en Mac
+        $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+        $ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+        $DOMINIO_BASE = $protocolo . "://" . $host_actual_url . $ruta_directorio . "/";
+    }
+    // --------------------------------------------------------
     
     $API_KEY = "7165-N580-6393-2899-7690"; 
     $RUT_EMISOR = "77121854-7";
