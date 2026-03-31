@@ -17,7 +17,13 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, 'ngrok') !== false || strpos($host, '.local') !== false);
 
-$rutas_posibles = [__DIR__ . '/vendor/autoload.php', __DIR__ . '/autoload.php', __DIR__ . '/librerias/autoload.php'];
+$rutas_posibles = [
+    __DIR__ . '/vendor/autoload.php',
+    __DIR__ . '/../vendor/autoload.php',    // Sube un nivel hacia el root del tema
+    __DIR__ . '/../../vendor/autoload.php', // Sube dos niveles por blindaje extra
+    __DIR__ . '/autoload.php', 
+    __DIR__ . '/librerias/autoload.php'
+];
 $autoload_encontrado = false;
 foreach ($rutas_posibles as $ruta) { 
     if (file_exists($ruta)) { 
