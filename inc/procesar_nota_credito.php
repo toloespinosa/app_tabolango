@@ -97,6 +97,21 @@ function generarPDFNotaCredito($ruta_destino, $datos, $html_ted_code) {
 }
 
 try {
+    // --- 1. SISTEMA DE RUTAS CENTRALIZADAS (Homologado con Facturación) ---
+    $host_actual = $_SERVER['HTTP_HOST'] ?? '';
+    $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+
+    // Si estamos ejecutando desde el subdominio de Producción (ERP)
+    if (strpos($host_actual, 'erp.tabolango.cl') !== false || strpos($ruta_raiz, 'erp.tabolango.cl') !== false) {
+        $ruta_public = str_replace('erp.tabolango.cl', 'public_html', $ruta_raiz);
+    } else {
+        $ruta_public = $ruta_raiz; // LocalWP
+    }
+
+    $ruta_base_uploads = rtrim($ruta_public, '/') . '/uploads/';
+    $PATH_CERT = $ruta_base_uploads . "certificados/certificado.pfx"; 
+    // -----------------------------------------------------------------------
+
     // 🔥 URL BASE DINÁMICA: Para evitar romper enlaces al migrar al ERP
     $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
     $ruta_directorio = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
@@ -108,10 +123,9 @@ try {
     $PASS_CERTIFICADO = "Sofia2020";
     $NUM_RESOLUCION = 80; 
     $FECHA_RESOLUCION = "2014-08-22"; 
-    
-    $PATH_CERT = __DIR__ . "/uploads/certificados/certificado.pfx";
 
-    if (!$is_local && !file_exists($PATH_CERT)) throw new Exception("Error: No se encuentra el certificado.");
+    // Imprimimos la ruta en el error por si llega a fallar para depurar al instante
+    if (!$is_local && !file_exists($PATH_CERT)) throw new Exception("Error: No se encuentra el certificado en: " . $PATH_CERT);
 
     // 🔥 USAMOS LA CONEXIÓN HEREDADA DE auth.php 🔥
     if (!isset($conn) || $conn->connect_error) {
@@ -186,7 +200,7 @@ try {
     $rut_cliente_fmt = $row['rut_cliente'];
     $rut_cliente = str_replace(['.',' '],'',$row['rut_cliente']);
 
-    $dir_certificados = __DIR__ . "/uploads/certificados/";
+    $dir_certificados = $ruta_base_uploads . "certificados/";
     $PATH_CAF = "";
     $archivos_caf = glob($dir_certificados . "*caf_61*.xml");
 
@@ -292,15 +306,17 @@ try {
     }
     $track_id = $api_data3['trackId'] ?? $api_data3['TrackId'] ?? 'OK_SIN_TRACKID';
 
-    $carpeta_xml = "uploads/nc_xml/";
-    $carpeta_pdf = "uploads/nc_pdf/";
-    if (!is_dir(__DIR__ . "/" . $carpeta_xml)) mkdir(__DIR__ . "/" . $carpeta_xml, 0755, true);
-    if (!is_dir(__DIR__ . "/" . $carpeta_pdf)) mkdir(__DIR__ . "/" . $carpeta_pdf, 0755, true);
+    $carpeta_xml = "nc_xml/";
+    $carpeta_pdf = "nc_pdf/";
+    
+    // Usamos la ruta absoluta centralizada
+    if (!is_dir($ruta_base_uploads . $carpeta_xml)) mkdir($ruta_base_uploads . $carpeta_xml, 0755, true);
+    if (!is_dir($ruta_base_uploads . $carpeta_pdf)) mkdir($ruta_base_uploads . $carpeta_pdf, 0755, true);
 
     $nombre_base = "NC" . $folio_nc . "_" . $id_pedido;
     
-    $ruta_xml_local = __DIR__ . "/" . $carpeta_xml . $nombre_base . ".xml";
-    $url_xml_web = $DOMINIO_BASE . $carpeta_xml . $nombre_base . ".xml";
+    $ruta_xml_local = $ruta_base_uploads . $carpeta_xml . $nombre_base . ".xml";
+    $url_xml_web = $DOMINIO_BASE . "uploads/" . $carpeta_xml . $nombre_base . ".xml";
     file_put_contents($ruta_xml_local, $xml_dte_generado);
 
     $xmlObj = simplexml_load_string($xml_dte_generado);
@@ -312,8 +328,8 @@ try {
         $html_ted_code = "<img src='{$barcode_url}' style='width:100%; max-height:100px;'><div style='font-size:9px;'>Timbre Electrónico SII<br>Verifique documento: www.sii.cl</div>";
     }
 
-    $ruta_pdf_local = __DIR__ . "/" . $carpeta_pdf . $nombre_base . ".pdf";
-    $url_pdf_web = $DOMINIO_BASE . $carpeta_pdf . $nombre_base . ".pdf";
+    $ruta_pdf_local = $ruta_base_uploads . $carpeta_pdf . $nombre_base . ".pdf";
+    $url_pdf_web = $DOMINIO_BASE . "uploads/" . $carpeta_pdf . $nombre_base . ".pdf";
     
     $datos_pdf = [
         'folio_nc' => $folio_nc,
