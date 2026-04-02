@@ -9,18 +9,18 @@ use Dompdf\Options;
 $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
 $conn->set_charset("utf8mb4");
 
-// 2. LÓGICA DE FECHA DINÁMICA (Bimestral)
+// 2. LÓGICA DE FECHA DINÁMICA (Próximo Viernes)
 function obtenerFechaVigencia() {
-    $mesActual = (int)date('n');
-    $anioActual = (int)date('Y');
-    if ($mesActual <= 2) { $mesFin = 2; $diaFin = 28; }
-    elseif ($mesActual <= 4) { $mesFin = 4; $diaFin = 30; }
-    elseif ($mesActual <= 6) { $mesFin = 6; $diaFin = 30; }
-    elseif ($mesActual <= 8) { $mesFin = 8; $diaFin = 31; }
-    elseif ($mesActual <= 10) { $mesFin = 10; $diaFin = 31; }
-    else { $mesFin = 12; $diaFin = 31; }
-    if ($mesFin == 2 && ($anioActual % 4 == 0)) { $diaFin = 29; }
+    // strtotime('next Friday') busca automáticamente el viernes siguiente a la fecha actual
+    $proximoViernes = strtotime('next Friday');
+    
+    // Extraemos el día, mes y año de ese próximo viernes
+    $diaFin = date('j', $proximoViernes); // Día del mes sin ceros iniciales
+    $mesFin = (int)date('n', $proximoViernes); // Mes sin ceros iniciales
+    $anioActual = date('Y', $proximoViernes); // Año de 4 dígitos
+    
     $meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
     return "$diaFin de " . $meses[$mesFin] . " de $anioActual";
 }
 $fechaVigencia = obtenerFechaVigencia();
@@ -88,9 +88,9 @@ $html = '
 </div>
 
 <div class="promo-box">
-    <strong>VOLUMEN SEMANAL COMBINADO:</strong><br>
-    Los descuentos por tramos se calculan sumando las unidades de <strong>todos</strong> los productos de su pedido semanal.<br>
-    <small>Ejemplo: 100 Tomates + 100 Paltas = Aplica automáticamente precio tramo > 200 Unidades.</small>
+    <strong>VOLUMEN POR PEDIDO:</strong><br>
+    Los descuentos por tramos se calculan sumando las unidades de <strong>todos</strong> los productos de su pedido.<br>
+    <small>Ejemplo: 250kg Tomates + 250kg Paltas = Aplica automáticamente precio tramo > 500 Unidades.</small>
 </div>
 
 <a href="https://wa.me/56962751651" class="cta-pedido">SOLICITA TU PEDIDO AL WHATSAPP: +56 9 6275 1651</a>
@@ -103,7 +103,7 @@ $html = '
             <th align="center">Formato</th>
             <th align="right">P. Neto Lista</th>
             <th align="right">> 100 Unid.</th>
-            <th align="right">> 200 Unid.</th>
+            <th align="right">> 500 Unid.</th>
         </tr>
     </thead>
     <tbody>';
