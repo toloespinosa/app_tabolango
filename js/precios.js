@@ -27,13 +27,15 @@
 
     if (btnLista) {
         btnLista.addEventListener('click', function () {
-            window.open('https://tabolango.cl/generar_pdf_precios.php', '_blank');
+            // Ruta exacta hacia la carpeta inc de tu tema en WordPress
+            window.open('/wp-content/themes/app_tabolango/inc/generar_pdf_precios.php', '_blank');
         });
     }
 
     if (btnNorte) {
         btnNorte.addEventListener('click', function () {
-            window.open('https://tabolango.cl/generar_pdf_precio_vnorte.php', '_blank');
+            // Ruta exacta hacia la carpeta inc de tu tema en WordPress
+            window.open('/wp-content/themes/app_tabolango/inc/generar_pdf_precio_vnorte.php', '_blank');
         });
     }
 
