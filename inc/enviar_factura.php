@@ -1,6 +1,6 @@
 <?php
 require_once 'auth.php';
-// enviar_factura.php - V86: SOLO TELEFONO FACTURACION
+// enviar_factura.php - V87: AUTOLOAD BLINDADO, WP-CONFIG Y LIMPIEZA DE TELÉFONO
 // ESTRICTO: Solo envía a 'telefono_factura'.
 
 mb_internal_encoding("UTF-8");
@@ -12,13 +12,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200); exit;
 }
 
-// Carga de librerías
-$rutas_posibles = [__DIR__ . '/vendor/autoload.php', __DIR__ . '/autoload.php'];
-foreach ($rutas_posibles as $ruta) { if (file_exists($ruta)) { require_once $ruta; break; } }
+// --- 1. BLINDAJE DEL AUTOLOAD ---
+$rutas_posibles = [
+    __DIR__ . '/vendor/autoload.php',
+    __DIR__ . '/../vendor/autoload.php',       
+    __DIR__ . '/../../vendor/autoload.php',    
+    __DIR__ . '/autoload.php'
+];
+$autoload_encontrado = false;
+foreach ($rutas_posibles as $ruta) { 
+    if (file_exists($ruta)) { require_once $ruta; $autoload_encontrado = true; break; } 
+}
+if (!$autoload_encontrado) {
+    echo json_encode(["status" => "error", "message" => "Falta autoload.php en enviar_factura"]);
+    exit;
+}
 
 use Twilio\Rest\Client;
 
-// Conexión BD
+// --- 2. CARGAR WP-CONFIG PARA LAS CREDENCIALES ---
+$wp_root = substr(__DIR__, 0, strpos(__DIR__, 'wp-content'));
+if (file_exists($wp_root . 'wp-config.php')) {
+    require_once $wp_root . 'wp-config.php';
+} else {
+    echo json_encode(["status" => "error", "message" => "No se encontró wp-config.php para leer las credenciales."]);
+    exit;
+}
+
+// 3. Conexión BD
 $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
 $conn->set_charset("utf8mb4");
 
@@ -44,14 +65,13 @@ if (isset($_POST['solo_marcar']) && $_POST['solo_marcar'] == '1') {
 }
 // ==============================================================================
 
-// --- CONFIGURACIÓN TWILIO ---
-$sid    = "TWILIO_ACCOUNT_SID";
-$token  = "TWILIO_AUTH_TOKEN"; 
+// --- 4. CONFIGURACIÓN TWILIO (Desde wp-config.php) ---
+$sid    = TWILIO_ACCOUNT_SID;
+$token  = TWILIO_AUTH_TOKEN; 
 $twilio = new Client($sid, $token);
 $templateSid = "HX0df30bf3bb6c43a5c2b0ff85b1f82fc8"; 
 
 // --- RECEPCIÓN DE DATOS ---
-// AQUI EL CAMBIO: Capturamos telefono_factura
 $telefonoFactura = $_POST['telefono_factura'] ?? ''; 
 $urlRecibida     = $_POST['url_pdf'] ?? ''; 
 $idPedido        = $_POST['id_pedido'] ?? '0'; 
@@ -67,16 +87,18 @@ try {
         throw new Exception("Error: No se recibió 'telefono_factura'. No se enviará mensaje.");
     }
 
+    // --- LIMPIEZA Y FORMATO DE TELÉFONO (Previene errores de Twilio) ---
+    $telefonoFactura = preg_replace('/[^0-9+]/', '', $telefonoFactura);
+    if (strpos($telefonoFactura, '+') === false && strlen($telefonoFactura) >= 11) {
+        $telefonoFactura = "+" . $telefonoFactura;
+    }
+
     // 2. PREPARACIÓN DE VARIABLES
     $nombreArchivo = basename($urlRecibida);
     $urlFinal = $urlRecibida . "?v=" . time(); // Anti-caché
     $variableSaludo = !empty(trim($nombreSaludo)) ? "" . trim($nombreSaludo) : "";
 
-    // 3. ENVÍO A TWILIO (Usando $telefonoFactura)
-    // Nota: Asegúrate de que el front envíe el formato +569...
-    // Si el front no manda el +, podrías agregarlo aquí: 
-    // if (strpos($telefonoFactura, '+') === false) $telefonoFactura = "+" . $telefonoFactura;
-
+    // 3. ENVÍO A TWILIO
     $message = $twilio->messages->create("whatsapp:" . $telefonoFactura, [
         "from" => "whatsapp:+12178583230",
         "contentSid" => $templateSid, 
