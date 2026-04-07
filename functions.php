@@ -52,7 +52,6 @@ add_action( 'after_setup_theme', 'mi_tema_pro_setup' );
 
 /**
  * HELPER: CONECTOR INTELIGENTE A LA BASE DE DATOS DE LA APP
- * Resuelve la separación de bases de datos en Producción
  */
 function tabolango_get_app_db() {
     $host = $_SERVER['HTTP_HOST'] ?? '';
@@ -64,11 +63,37 @@ function tabolango_get_app_db() {
     } else {
         static $app_db = null;
         if ($app_db === null) {
-            // Usa tus credenciales de Hostinger
             $app_db = new wpdb('tabolang_app', 'm{Hpj.?IZL$Kz${S', 'tabolang_pedidos', 'localhost');
         }
         return $app_db;
     }
+}
+
+/**
+ * SISTEMA INTEGRAL DE AVATARES TABOLANGO
+ */
+function tabolango_get_avatar($user_id, $email, $first_name, $last_name) {
+    $app_db = tabolango_get_app_db();
+    $avatar_url = '';
+
+    $foto_bd = $app_db->get_var($app_db->prepare("SELECT foto_url FROM app_usuarios WHERE email = %s", $email));
+    
+    if (!empty($foto_bd) && strpos($foto_bd, 'nsl_avatars') === false) {
+        $avatar_url = $foto_bd;
+    } else {
+        $meta_avatar = get_user_meta($user_id, 'avatar_google', true);
+        if (!empty($meta_avatar) && strpos($meta_avatar, 'nsl_avatars') === false) {
+            $avatar_url = $meta_avatar;
+        }
+    }
+
+    if (empty($avatar_url) || strpos($avatar_url, 'gravatar.com') !== false) {
+        $nombre_mostrar = trim($first_name . ' ' . $last_name);
+        if (empty($nombre_mostrar)) $nombre_mostrar = explode('@', $email)[0];
+        $avatar_url = "https://ui-avatars.com/api/?name=" . urlencode($nombre_mostrar) . "&background=0F4B29&color=fff&bold=true";
+    }
+
+    return esc_url($avatar_url);
 }
 
 /**
@@ -92,9 +117,36 @@ function procesar_login_google_tabolango() {
     $apellido = sanitize_text_field($body['family_name'] ?? '');
     $picture = sanitize_url($body['picture'] ?? '');
 
+    // === DESCARGA LOCAL DE AVATAR ===
+    $avatar_final = '';
+    if ( !empty($picture) ) {
+        $upload_dir = wp_upload_dir();
+        $avatar_folder_path = $upload_dir['basedir'] . '/avatars';
+        $avatar_folder_url = $upload_dir['baseurl'] . '/avatars';
+
+        if ( !file_exists($avatar_folder_path) ) wp_mkdir_p($avatar_folder_path);
+
+        $user_login_base = explode('@', $email)[0];
+        $nombre_archivo = 'avatar_' . sanitize_file_name($user_login_base) . '.jpg';
+        $ruta_fisica = $avatar_folder_path . '/' . $nombre_archivo;
+        $url_local = $avatar_folder_url . '/' . $nombre_archivo;
+
+        $respuesta_img = wp_remote_get($picture, ['timeout' => 10]);
+        
+        if ( !is_wp_error($respuesta_img) && wp_remote_retrieve_response_code($respuesta_img) === 200 ) {
+            $cuerpo_img = wp_remote_retrieve_body($respuesta_img);
+            if ( file_put_contents($ruta_fisica, $cuerpo_img) ) {
+                $avatar_final = $url_local; 
+            } else {
+                $avatar_final = $picture; 
+            }
+        } else {
+            $avatar_final = $picture; 
+        }
+    }
+
     $app_db = tabolango_get_app_db();
     $es_tabolango = str_ends_with($email, '@tabolango.cl');
-    
     $usuario_db = $app_db->get_row($app_db->prepare("SELECT * FROM app_usuarios WHERE email = %s", $email));
 
     if (!$usuario_db) {
@@ -102,13 +154,13 @@ function procesar_login_google_tabolango() {
             $user_login = explode('@', $email)[0];
             $app_db->insert('app_usuarios', [
                 'user_login' => $user_login, 'nombre' => $nombre, 'apellido' => $apellido, 
-                'email' => $email, 'foto_url' => $picture, 'cargo' => 'Usuario', 'activo' => 1
+                'email' => $email, 'foto_url' => $avatar_final, 'cargo' => 'Usuario', 'activo' => 1
             ]);
         } else {
             wp_send_json([
                 'status' => 'not_registered', 
                 'message' => "El correo <b>{$email}</b> no pertenece al sistema.",
-                'userData' => ['email' => $email, 'nombre' => $nombre, 'apellido' => $apellido, 'picture' => $picture]
+                'userData' => ['email' => $email, 'nombre' => $nombre, 'apellido' => $apellido, 'picture' => $avatar_final]
             ]);
         }
     } else {
@@ -130,16 +182,16 @@ function procesar_login_google_tabolango() {
     wp_set_current_user($user->ID); wp_set_auth_cookie($user->ID, true); 
     update_user_caches($user); do_action('wp_login', $user->user_login, $user);
 
-    update_user_meta($user->ID, 'avatar_google', $picture); 
-    if (!empty($picture)) {
-        $app_db->query($app_db->prepare("UPDATE app_usuarios SET foto_url = %s WHERE email = %s", $picture, $email));
+    update_user_meta($user->ID, 'avatar_google', $avatar_final); 
+    if (!empty($avatar_final)) {
+        $app_db->query($app_db->prepare("UPDATE app_usuarios SET foto_url = %s WHERE email = %s", $avatar_final, $email));
     }
 
     wp_send_json(['status' => 'success', 'message' => 'Bienvenido']);
 }
 
 /**
- * NUEVO: ENDPOINT PARA GUARDAR SOLICITUD DE ACCESO (Inactivo por defecto)
+ * ENDPOINT PARA GUARDAR SOLICITUD DE ACCESO
  */
 add_action('wp_ajax_nopriv_solicitar_acceso_tabolango', 'crear_solicitud_acceso_tabolango');
 function crear_solicitud_acceso_tabolango() {
@@ -188,7 +240,6 @@ function tabolango_get_user_role() {
     $host = $_SERVER['HTTP_HOST'] ?? '';
     $is_local = (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, '.local') !== false);
     
-    // Leemos la simulación visual si existe en local
     if ( $is_local && isset($_COOKIE['simular_rol_tabolango']) ) {
         return (int) $_COOKIE['simular_rol_tabolango'];
     }
@@ -206,7 +257,7 @@ function tabolango_get_user_role() {
 }
 
 /**
- * FUNCIÓN PARA BLOQUEAR PÁGINAS FÍSICAS (DISEÑO CAJA BLANCA)
+ * FUNCIÓN PARA BLOQUEAR PÁGINAS FÍSICAS
  */
 function tabolango_requerir_rol($roles_permitidos) {
     $rol_actual = tabolango_get_user_role();
@@ -239,7 +290,7 @@ function tabolango_requerir_rol($roles_permitidos) {
 }
 
 /**
- * INYECCIÓN DE ESTADO GLOBAL DE LA APP (Identity Bridge Limpio)
+ * INYECCIÓN DE ESTADO GLOBAL DE LA APP
  */
 add_action('wp_head', 'inyectar_identidad_app', 5);
 function inyectar_identidad_app() {
@@ -249,9 +300,8 @@ function inyectar_identidad_app() {
     }
 
     $email = wp_get_current_user()->user_email;
-    $rol_id = tabolango_get_user_role(); // Usa la función centralizada
+    $rol_id = tabolango_get_user_role(); 
 
-    // --- NUEVO: Verificar si falta el teléfono ---
     $app_db = tabolango_get_app_db();
     $telefono = $app_db->get_var($app_db->prepare("SELECT telefono FROM app_usuarios WHERE email = %s LIMIT 1", $email));
     $falta_telefono = (empty(trim($telefono))) ? 'true' : 'false';
@@ -265,7 +315,7 @@ function inyectar_identidad_app() {
 }
 
 /**
- * NUEVO: GUARDAR TELÉFONO INICIAL DEL USUARIO (CON FORMATO +569)
+ * GUARDAR TELÉFONO INICIAL DEL USUARIO
  */
 add_action('wp_ajax_guardar_mi_telefono', 'tabolango_guardar_mi_telefono');
 function tabolango_guardar_mi_telefono() {
@@ -276,10 +326,8 @@ function tabolango_guardar_mi_telefono() {
     $email = wp_get_current_user()->user_email;
     $telefono = sanitize_text_field($_POST['telefono'] ?? '');
     
-    // 1. Limpiamos cualquier cosa que no sea número o el signo +
     $telefono = preg_replace('/[^0-9+]/', '', $telefono);
     
-    // 2. Verificamos con Regex que sea exactamente +569 seguido de 8 números
     if (!preg_match('/^\+569\d{8}$/', $telefono)) {
         wp_send_json(['status' => 'error', 'message' => 'Formato inválido. Debe ser +569XXXXXXXX.']);
     }
@@ -296,7 +344,7 @@ function tabolango_guardar_mi_telefono() {
 add_filter( 'show_admin_bar', '__return_false' );
 
 /**
- * NUEVO: GUARDAR TOKEN DE FIREBASE (FCM) DEL USUARIO
+ * GUARDAR TOKEN DE FIREBASE (FCM) DEL USUARIO
  */
 add_action('wp_ajax_guardar_token_fcm', 'tabolango_guardar_token_fcm');
 function tabolango_guardar_token_fcm() {
@@ -309,7 +357,6 @@ function tabolango_guardar_token_fcm() {
 
     $app_db = tabolango_get_app_db();
     
-    // Verificamos si este token exacto ya existe para no duplicarlo
     $existe = $app_db->get_var($app_db->prepare("SELECT id FROM app_fcm_tokens WHERE token = %s", $token));
 
     if (!$existe) {
