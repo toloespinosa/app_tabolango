@@ -444,7 +444,10 @@ window.inicializarFirebasePush = function () {
                 });
                 // ------------------------------------------------------------------
 
-                if (Notification.permission === 'default') {
+                // 🧠 LÓGICA UX MEJORADA: Verificamos si el usuario ya silenció el prompt
+                const fcmPromptDismissed = localStorage.getItem('fcm_prompt_dismissed');
+
+                if (Notification.permission === 'default' && !fcmPromptDismissed) {
                     Swal.fire({
                         title: '🔔 Activar Notificaciones',
                         text: 'Mantente al día con el estado de tus pedidos.',
@@ -456,6 +459,10 @@ window.inicializarFirebasePush = function () {
                     }).then((result) => {
                         if (result.isConfirmed) {
                             solicitarTokenFCM(messaging, registration, userEmail, vapidKeyConfig);
+                        } else if (result.isDismissed || result.isDenied) {
+                            // Registramos el rechazo en el almacenamiento local para no volver a preguntar
+                            localStorage.setItem('fcm_prompt_dismissed', 'true');
+                            console.log('🔕 Usuario declinó notificaciones. Guardado en localStorage.');
                         }
                     });
                 } else if (Notification.permission === 'granted') {
