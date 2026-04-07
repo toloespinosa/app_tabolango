@@ -77,22 +77,34 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
         <div class="header-right">
             <?php 
             $login_url = home_url( '/login/' );
-            $avatar_url = $is_logged_in ? get_avatar_url( $current_user_bridge->ID ) : ''; 
+            $avatar_url = ''; 
 
-           // --- BUSCAR FOTO DIRECTO EN LA BASE DE DATOS EXTERNA ---
+            // --- LÓGICA DE AVATAR BLINDADA ---
             if ( $is_logged_in && function_exists('tabolango_get_app_db') ) {
                 $app_db = tabolango_get_app_db();
                 $foto_bd = $app_db->get_var( $app_db->prepare( "SELECT foto_url FROM app_usuarios WHERE email = %s", $current_user_bridge->user_email ) );
                 
-                if ( !empty( $foto_bd ) ) {
-                    $avatar_url = $foto_bd; // Prioridad 1: Tabla app_usuarios
+                // Si existe en BD y NO es el rastro roto del plugin antiguo (nsl_avatars)
+                if ( !empty( $foto_bd ) && strpos($foto_bd, 'nsl_avatars') === false ) {
+                    $avatar_url = $foto_bd;
                 } else {
-                    // Prioridad 2: Respaldo desde los metadatos nativos de WP
+                    // Respaldo desde los metadatos nativos de WordPress
                     $meta_avatar = get_user_meta( $current_user_bridge->ID, 'avatar_google', true );
-                    if ( !empty( $meta_avatar ) ) {
+                    if ( !empty( $meta_avatar ) && strpos($meta_avatar, 'nsl_avatars') === false ) {
                         $avatar_url = $meta_avatar;
                     }
                 }
+            }
+
+            // --- FALLBACK PROFESIONAL (UI-AVATARS) ---
+            // Si la URL sigue vacía o es el avatar genérico de Gravatar
+            if ( empty($avatar_url) || strpos($avatar_url, 'gravatar.com') !== false ) {
+                $nombre_mostrar = trim($current_user_bridge->first_name . ' ' . $current_user_bridge->last_name);
+                if ( empty($nombre_mostrar) ) {
+                    $nombre_mostrar = $current_user_bridge->display_name;
+                }
+                // Genera un avatar con iniciales, fondo verde corporativo y letras blancas
+                $avatar_url = "https://ui-avatars.com/api/?name=" . urlencode($nombre_mostrar) . "&background=0F4B29&color=fff&bold=true";
             }
             ?>
             
@@ -103,8 +115,7 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
                     
                     <?php if ($is_logged_in) : ?>
                         <span class="user-welcome-text">Hola, <?php echo esc_html($current_user_bridge->first_name ?: $current_user_bridge->display_name); ?>!</span>
-<img src="<?php echo esc_url($avatar_url); ?>" alt="Perfil" class="custom-avatar" onerror="this.onerror=null; this.src='https://secure.gravatar.com/avatar/?s=96&d=mm&r=g';">                    <?php else : ?>
-                         <span class="user-welcome-text">Iniciar Sesión</span>
+<img src="<?php echo esc_url($avatar_url); ?>" alt="Perfil" class="custom-avatar">                         <span class="user-welcome-text">Iniciar Sesión</span>
                     <?php endif; ?>
                 </div>
 
