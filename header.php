@@ -83,8 +83,15 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
             if ( $is_logged_in && function_exists('tabolango_get_app_db') ) {
                 $app_db = tabolango_get_app_db();
                 $foto_bd = $app_db->get_var( $app_db->prepare( "SELECT foto_url FROM app_usuarios WHERE email = %s", $current_user_bridge->user_email ) );
+                
                 if ( !empty( $foto_bd ) ) {
-                    $avatar_url = $foto_bd;
+                    $avatar_url = $foto_bd; // Prioridad 1: Tabla app_usuarios
+                } else {
+                    // Prioridad 2: Respaldo desde los metadatos nativos de WP
+                    $meta_avatar = get_user_meta( $current_user_bridge->ID, 'avatar_google', true );
+                    if ( !empty( $meta_avatar ) ) {
+                        $avatar_url = $meta_avatar;
+                    }
                 }
             }
             ?>
