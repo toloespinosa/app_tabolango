@@ -96,8 +96,7 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
                     
                     <?php if ($is_logged_in) : ?>
                         <span class="user-welcome-text">Hola, <?php echo esc_html($current_user_bridge->first_name ?: $current_user_bridge->display_name); ?>!</span>
-                        <img src="<?php echo esc_url($avatar_url); ?>" alt="Perfil" class="custom-avatar">
-                    <?php else : ?>
+<img src="<?php echo esc_url($avatar_url); ?>" alt="Perfil" class="custom-avatar" onerror="this.onerror=null; this.src='https://secure.gravatar.com/avatar/?s=96&d=mm&r=g';">                    <?php else : ?>
                          <span class="user-welcome-text">Iniciar Sesión</span>
                     <?php endif; ?>
                 </div>
