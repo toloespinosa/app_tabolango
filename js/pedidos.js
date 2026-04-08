@@ -168,10 +168,11 @@ async function loadOrders() {
             // --- LÓGICA BOTÓN WHATSAPP Y EDICIÓN ---
             let btnWhatsapp = '';
             if (canSendWA) {
-                let waEnviado = order.whatsapp_enviado && order.whatsapp_enviado !== "0000-00-00 00:00:00" && order.whatsapp_enviado !== null;
-                let bgWa = waEnviado ? "#3498db" : "#25D366";
-                let shadowWa = waEnviado ? "#2980b9" : "#1da851";
-                let textWa = waEnviado ? "🔄 REENVIAR POR WHATSAPP" : "ENVIAR DETALLE";
+                // AHORA EVALUAMOS 'detalle_enviado' PARA EL BOTÓN DE DETALLE DE WHATSAPP
+                let detalleEnviado = order.detalle_enviado && order.detalle_enviado !== "0000-00-00 00:00:00" && order.detalle_enviado !== null;
+                let bgWa = detalleEnviado ? "#3498db" : "#25D366";
+                let shadowWa = detalleEnviado ? "#2980b9" : "#1da851";
+                let textWa = detalleEnviado ? "🔄 REENVIAR DETALLE" : "ENVIAR DETALLE (WA)";
 
                 btnWhatsapp = `
                 <button onclick="event.stopPropagation(); prepararEnvioWhatsapp('${order.id_pedido}')" style="width:100%; padding:12px; background:${bgWa}; color:white; border:none; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; margin-bottom:10px; margin-top:10px; box-shadow:0 3px 0 ${shadowWa}; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 6px;">

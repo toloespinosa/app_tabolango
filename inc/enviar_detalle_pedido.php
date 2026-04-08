@@ -251,7 +251,8 @@ try {
         "contentVariables" => json_encode($variablesTwilio, JSON_UNESCAPED_UNICODE)
     ]);
 
-    $conn->query("UPDATE pedidos_activos SET whatsapp_enviado = NOW() WHERE id_pedido = '$idPedido'");
+// Registramos de forma independiente el envío de la comanda/detalle
+    $conn->query("UPDATE pedidos_activos SET detalle_enviado = NOW() WHERE id_pedido = '$idPedido'");
 
     echo json_encode(["status" => "ok", "message" => "WhatsApp enviado con PDF y Diseño Maximizado", "pdf" => $nombreArchivoPDF]);
 
