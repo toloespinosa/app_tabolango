@@ -39,10 +39,6 @@ if (file_exists($wp_root . 'wp-config.php')) {
     exit;
 }
 
-// 3. Conexión BD
-$conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
-$conn->set_charset("utf8mb4");
-
 // ==============================================================================
 // 🟢 BLOQUE SOLO MARCAR (SIN CAMBIOS)
 // ==============================================================================
@@ -78,6 +74,10 @@ $idPedido        = $_POST['id_pedido'] ?? '0';
 $nombreSaludo    = $_POST['nombre'] ?? '';  
 $folioPost       = $_POST['folio'] ?? 'SN'; 
 
+// --- DETECCIÓN DE ENTORNO LOCAL ---
+$host_req = $_SERVER['HTTP_HOST'] ?? '';
+$es_entorno_local = (strpos($host_req, 'localhost') !== false || strpos($host_req, '127.0.0.1') !== false || strpos($host_req, '.local') !== false);
+
 try {
     // 1. VALIDACIONES
     if (empty($urlRecibida)) throw new Exception("URL del PDF vacía.");
@@ -87,7 +87,7 @@ try {
         throw new Exception("Error: No se recibió 'telefono_factura'. No se enviará mensaje.");
     }
 
-    // --- LIMPIEZA Y FORMATO DE TELÉFONO (Previene errores de Twilio) ---
+    // --- LIMPIEZA Y FORMATO DE TELÉFONO ---
     $telefonoFactura = preg_replace('/[^0-9+]/', '', $telefonoFactura);
     if (strpos($telefonoFactura, '+') === false && strlen($telefonoFactura) >= 11) {
         $telefonoFactura = "+" . $telefonoFactura;
@@ -98,30 +98,36 @@ try {
     $urlFinal = $urlRecibida . "?v=" . time(); // Anti-caché
     $variableSaludo = !empty(trim($nombreSaludo)) ? "" . trim($nombreSaludo) : "";
 
-    // 3. ENVÍO A TWILIO
-    $message = $twilio->messages->create("whatsapp:" . $telefonoFactura, [
-        "from" => "whatsapp:+12178583230",
-        "contentSid" => $templateSid, 
-        "contentVariables" => json_encode([
-            "1" => (string)$variableSaludo, 
-            "2" => (string)$folioPost,
-            "3" => (string)$nombreArchivo 
-        ]),
-        "mediaUrl" => [$urlFinal]
-    ]);
+    // 3. ENVÍO A TWILIO (SOLO EN PRODUCCIÓN)
+    if (!$es_entorno_local) {
+        $message = $twilio->messages->create("whatsapp:" . $telefonoFactura, [
+            "from" => "whatsapp:+12178583230",
+            "contentSid" => $templateSid, 
+            "contentVariables" => json_encode([
+                "1" => (string)$variableSaludo, 
+                "2" => (string)$folioPost,
+                "3" => (string)$nombreArchivo 
+            ]),
+            "mediaUrl" => [$urlFinal]
+        ]);
+    }
 
     // 4. ACTUALIZAR BD
     if (!empty($idPedido) && $idPedido !== '0') {
         $conn->query("UPDATE pedidos_activos SET whatsapp_enviado = NOW() WHERE id_pedido = '$idPedido'");
     }
 
+    // Mensaje de éxito dinámico
+    $msg_envio = $es_entorno_local ? "Simulación WhatsApp OK (Modo Local)" : "Enviado a " . $telefonoFactura;
+
     echo json_encode([
         "status" => "ok", 
         "archivo_enviado" => $nombreArchivo,
-        "enviado_a" => $telefonoFactura
+        "enviado_a" => $msg_envio
     ]);
 
-} catch (Exception $e) {
-    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+} catch (Throwable $e) {
+    http_response_code(400); // Lanzar 400 exacto para JS
+    echo json_encode(["status" => "error", "message" => "CRÍTICO: " . $e->getMessage()]);
 }
 ?>

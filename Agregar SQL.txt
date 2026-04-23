@@ -1,1 +1,44 @@
-ALTER TABLE app_usuarios MODIFY cargo VARCHAR(100) DEFAULT 'Usuario';
+-- 1. Almacena los movimientos que entran/salen del banco
+CREATE TABLE `app_movimientos_bancarios` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `fecha_movimiento` date NOT NULL,
+  `descripcion` varchar(255) COLLATE utf8mb3_unicode_ci NOT NULL,
+  `monto` decimal(12,2) NOT NULL,
+  `tipo` enum('ingreso','egreso') COLLATE utf8mb3_unicode_ci DEFAULT 'ingreso',
+  `estado` enum('pendiente','parcial','conciliado') COLLATE utf8mb3_unicode_ci DEFAULT 'pendiente',
+  `saldo_disponible` decimal(12,2) NOT NULL COMMENT 'Permite pagar múltiples facturas con un solo abono',
+  `banco` varchar(50) COLLATE utf8mb3_unicode_ci DEFAULT NULL,
+  `fecha_registro` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_estado` (`estado`),
+  INDEX `idx_fecha` (`fecha_movimiento`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+-- 2. Almacena el historial de qué movimiento pagó qué pedido (El "Match")
+CREATE TABLE `app_conciliaciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_movimiento` int NOT NULL,
+  `id_pedido_interno` int NOT NULL COMMENT 'Se enlaza con pedidos_activos.id_interno',
+  `monto_aplicado` decimal(12,2) NOT NULL,
+  `fecha_conciliacion` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `conciliado_por` varchar(100) COLLATE utf8mb3_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`id_movimiento`) REFERENCES `app_movimientos_bancarios`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+-- 3. Preparamos la tabla de pedidos para saber si están pagados
+ALTER TABLE `pedidos_activos`
+ADD COLUMN `estado_pago` enum('Pendiente','Parcial','Pagado') COLLATE utf8mb3_unicode_ci DEFAULT 'Pendiente',
+ADD COLUMN `monto_pagado` decimal(12,2) DEFAULT 0.00;
+
+ALTER TABLE `app_movimientos_bancarios`
+ADD COLUMN `fintoc_id` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `id`,
+ADD UNIQUE INDEX `idx_fintoc_id` (`fintoc_id`);
+
+-- 1. Borramos el historial de prueba viejo para bajarlo limpio
+TRUNCATE TABLE `app_movimientos_bancarios`;
+
+-- 2. Agregamos las columnas de RUT y Nombre
+ALTER TABLE `app_movimientos_bancarios`
+ADD COLUMN `rut_remitente` varchar(20) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `descripcion`,
+ADD COLUMN `nombre_remitente` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `rut_remitente`;

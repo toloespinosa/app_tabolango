@@ -375,4 +375,15 @@ function tabolango_guardar_token_fcm() {
 
     wp_send_json(['status' => 'success']);
 }
+
+/**
+ * ----------------------------------------------------------------------
+ * MÓDULO DE TESORERÍA Y CONCILIACIÓN
+ * Modularizado para aislar la lógica financiera y proteger el core.
+ * ----------------------------------------------------------------------
+ */
+$tesoreria_path = get_template_directory() . '/inc/tesoreria.php';
+if ( file_exists( $tesoreria_path ) ) {
+    require_once $tesoreria_path;
+}
 ?>

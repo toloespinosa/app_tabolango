@@ -17,7 +17,11 @@ ini_set('memory_limit', '512M');
 set_time_limit(120); 
 
 // -----------------------------------------------------------------------------
-$MODO_SIMULACION = false; // <--- TRUE: USA "52S" O "33S" EN LA BASE DE DATOS
+// DETECCIÓN AUTOMÁTICA DE ENTORNO (LOCAL vs PRODUCCIÓN)
+$host_req = $_SERVER['HTTP_HOST'] ?? '';
+$es_entorno_local = (strpos($host_req, 'localhost') !== false || strpos($host_req, '127.0.0.1') !== false || strpos($host_req, '.local') !== false);
+
+$MODO_SIMULACION = $es_entorno_local ? true : false; // TRUE: Usa "52S" (Local), FALSE: Envia al SII (Prod)
 // -----------------------------------------------------------------------------
 
 // Ampliamos el scope de búsqueda considerando la estructura clásica de temas en WP
@@ -49,8 +53,12 @@ function cleanStr($str) {
 }
 
 try {
-    $DOMINIO_BASE = "https://tabolango.cl/"; 
-    $API_KEY = "7165-N580-6393-2899-7690"; 
+    // --- CAMBIO: DOMINIO DINÁMICO (Local vs Producción) ---
+    $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
+    $DOMINIO_BASE = $es_entorno_local ? $protocolo . "://" . $_SERVER['HTTP_HOST'] . "/" : "https://tabolango.cl/";
+    // ------------------------------------------------------
+
+    $API_KEY = "7165-N580-6393-2899-7690";
 
     $RUT_EMISOR_FMT = "77.121.854-7"; 
     $RUT_EMISOR_CLEAN = "77121854-7"; 
@@ -82,9 +90,7 @@ try {
     $path_certificado = $ruta_base_uploads . "certificados/certificado.pfx"; 
     // ---------------------------------------------------------------------------
 
-    $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");
-    $conn->set_charset("utf8");
-    if ($conn->connect_error) { throw new Exception("Error Conexión BD"); }
+    
 
     // --- CAMBIO: CAPTURA OMNIDIRECCIONAL DE PARÁMETROS ---
     $input = json_decode(file_get_contents('php://input'), true);
@@ -153,16 +159,19 @@ try {
     $check_col = $conn->query("SHOW COLUMNS FROM clientes LIKE 'ciudad'");
     $campo_ciudad = ($check_col && $check_col->num_rows > 0) ? ", C.ciudad" : "";
 
+    // --- CAMBIO: Se agrega C.dias_credito a la consulta ---
     $sql = "SELECT P.producto, P.cantidad, P.precio_unitario, P.fecha_despacho, P.numero_guia,
             M.Variedad, M.calibre, M.formato, M.unidad, 
-            C.rut_cliente, C.razon_social, C.giro, C.direccion, C.comuna, C.cliente as nombre_fantasia $campo_ciudad $campo_email
+            C.rut_cliente, C.razon_social, C.giro, C.direccion, C.comuna, C.cliente as nombre_fantasia, C.dias_credito $campo_ciudad $campo_email
             FROM pedidos_activos P 
             LEFT JOIN clientes C ON (P.cliente = C.cliente OR P.id_interno_cliente = C.id_interno)
             LEFT JOIN productos M ON P.id_producto = M.id_producto
             WHERE P.id_pedido = '$id_pedido'";
 
     $res = $conn->query($sql);
-    $detalles = []; $cliente = null; $suma_neto = 0;
+    
+    // --- CAMBIO 2: Se inicializa la variable global de crédito ---
+    $detalles = []; $cliente = null; $suma_neto = 0; $dias_credito_cliente = 0; 
     
     $fecha_hoy = date("Y-m-d");
     $folio_guia_ref = 0;
@@ -170,6 +179,10 @@ try {
 
     while ($row = $res->fetch_assoc()) {
         if (!$cliente) {
+            
+            // Capturamos los días de crédito de forma segura (fallback a 0 si es nulo)
+            $dias_credito_cliente = (int)($row['dias_credito'] ?? 0);
+
             $ciudad_defecto = !empty($row['ciudad']) ? $row['ciudad'] : ($row['comuna'] ?? "Santiago");
             $dir_normal = $row['direccion'] ?? "Sin Direccion";
             $com_normal = $row['comuna'] ?? "Santiago";
@@ -239,15 +252,28 @@ try {
         $detalles_api[] = $item;
     }
 
-    $forma_pago = ($codigo_dte == 33) ? 2 : 1;
+    // --- LÓGICA DE CRÉDITO: 1:Contado, 2:Crédito ---
+    // Si es Factura (33) y tiene 1 día o más de crédito, se marca como Crédito (2)
+    $forma_pago = ($codigo_dte == 33 && $dias_credito_cliente >= 1) ? 2 : 1;
+
     $encabezado_base = [
-        "IdentificacionDTE" => ["TipoDTE" => $codigo_dte, "Folio" => $folio_a_usar, "FechaEmision" => $fecha_hoy, "FormaPago" => $forma_pago],
+        "IdentificacionDTE" => [
+            "TipoDTE" => $codigo_dte, 
+            "Folio" => $folio_a_usar, 
+            "FechaEmision" => $fecha_hoy, 
+            "FormaPago" => $forma_pago
+        ],
         "Emisor" => ["Rut" => $RUT_EMISOR_CLEAN, "RazonSocial" => $RAZON_SOCIAL_EMISOR, "Giro" => $GIRO_EMISOR, "ActividadEconomica" => [472190], "DireccionOrigen" => $DIR_EMISOR, "ComunaOrigen" => $COMUNA_EMISOR, "Telefono" => []],
         "Receptor" => $cliente, 
         "Totales" => ["MontoNeto" => $suma_neto, "TasaIVA" => 19, "IVA" => $suma_iva, "MontoTotal" => $suma_total]
     ];
 
-    if ($codigo_dte == 33) $encabezado_base['IdentificacionDTE']["FechaVencimiento"] = date("Y-m-d", strtotime("$fecha_hoy + 1 day"));
+    // --- CÁLCULO DE VENCIMIENTO ---
+    if ($codigo_dte == 33) {
+        // Si tiene crédito (>=1), sumamos esos días. Si no, dejamos 1 día por defecto para facturas al contado.
+        $plazo_vencimiento = ($dias_credito_cliente >= 1) ? $dias_credito_cliente : 1;
+        $encabezado_base['IdentificacionDTE']["FechaVencimiento"] = date("Y-m-d", strtotime("$fecha_hoy + $plazo_vencimiento days"));
+    }
     if ($codigo_dte == 52) {
         $encabezado_base['IdentificacionDTE']['TipoDespacho'] = 2; 
         $encabezado_base['IdentificacionDTE']['IndTraslado'] = 1; 
@@ -415,6 +441,17 @@ try {
     $neto_fmt = number_format($suma_neto, 0, ',', '.');
     $iva_fmt = number_format($suma_iva, 0, ',', '.');
     $total_fmt = number_format($suma_total, 0, ',', '.');
+
+    $html_condicion_pago = "";
+    if ($codigo_dte == 33) {
+        if ($dias_credito_cliente >= 1) {
+            $dias_restar = $dias_credito_cliente - 1;
+            $fecha_limite_visual = date("d-m-Y", strtotime("$fecha_hoy + $dias_restar days"));
+            $html_condicion_pago = '<div style="margin-top:8px; text-align:right; font-size:11px; color:#CC0000; font-weight:bold; border-top:1px solid #ccc; padding-top:6px;">PAGAR ANTES DEL:<br>' . $fecha_limite_visual . '</div>';
+        } else {
+            $html_condicion_pago = '<div style="margin-top:8px; text-align:right; font-size:11px; color:#0F4B29; font-weight:bold; border-top:1px solid #ccc; padding-top:6px;">CONDICIÓN:<br>AL CONTADO</div>';
+        }
+    }
     
     $html_referencia_bottom = "";
     if ($codigo_dte == 33 && $folio_guia_ref > 0) {
@@ -429,8 +466,7 @@ try {
 
     $str_folio_impreso = $MODO_SIMULACION ? "N° " . $folio_final : "N° " . $folio_final;
 
-    $html = '<html><head><meta charset="UTF-8"><style>@page{margin:15mm 15mm 15mm 15mm;}body{font-family:Helvetica,sans-serif;font-size:11px;color:#333;line-height:1.3;}.header{width:100%;margin-bottom:30px;}.col-left{float:left;width:60%;}.col-right{float:right;width:33%;border:3px solid #CC0000;padding:15px 10px;text-align:center;color:#CC0000;font-weight:bold;}.clear{clear:both;}.logo-img{width:180px;margin-bottom:10px;}.box{border:1px solid #000;padding:5px;margin-bottom:15px;}.box table{width:100%;}.items-table{width:100%;border-collapse:collapse;margin-top:10px;}.items-table th{background-color:#f5f5f5;border:1px solid #000;padding:6px;text-align:left;font-size:10px;font-weight:bold;}.footer{margin-top:30px;}.ted-box{float:left;width:350px;text-align:center;padding-top:10px;}.totals-box{float:right;width:220px;}.total-table{width:100%;border-collapse:collapse;}.total-table td{padding:4px;font-size:12px;}.grand-total{border-top:2px solid #000;font-weight:bold;font-size:14px;padding-top:8px !important;}</style></head><body><div class="header"><div class="col-left"><img src="'.$logo_b64.'" class="logo-img"><br><div style="font-size:14px;font-weight:bold;text-transform:uppercase;">'.$RAZON_SOCIAL_EMISOR.'</div><div>Giro: '.$GIRO_EMISOR.'</div><div>'.$DIR_EMISOR.', '.$COMUNA_EMISOR.'</div><div>Email: admin@tabolango.cl</div></div><div class="col-right"><div style="font-size:16px;margin-bottom:8px;">R.U.T.: '.$RUT_EMISOR_FMT.'</div><div style="font-size:16px;margin-bottom:8px;background-color:#fff;">'.$nombre_dte.'</div><div style="font-size:16px;margin-bottom:8px;">'.$str_folio_impreso.'</div><div style="font-size:11px;color:#CC0000;">S.I.I. - LA FLORIDA</div></div><div class="clear"></div></div><div class="box"><table cellspacing="0" cellpadding="0" border="0"><tr><td width="80"><strong>SE&Ntilde;OR(ES):</strong></td><td>'.$cliente['RazonSocial'].'</td><td width="100" align="right"><strong>FECHA:</strong> '.$fecha_visual.'</td></tr><tr><td><strong>RUT:</strong></td><td colspan="2">'.$cliente['Rut'].'</td></tr><tr><td><strong>DIRECCI&Oacute;N:</strong></td><td colspan="2">'.$cliente['Direccion'].'</td></tr><tr><td><strong>COMUNA:</strong></td><td colspan="2">'.$cliente['Comuna'].' &nbsp;&nbsp;&nbsp;&nbsp; <strong>CIUDAD:</strong> '.$cliente['Ciudad'].'</td></tr></table></div><table class="items-table"><thead><tr><th width="50%">DESCRIPCI&Oacute;N</th><th width="15%" colspan="2" style="text-align:center;">CANTIDAD</th><th width="15%" style="text-align:right;">PRECIO UNIT.</th><th width="20%" style="text-align:right;">TOTAL</th></tr></thead><tbody>'.$filas.'</tbody></table>'.$html_referencia_bottom.'<div class="footer"><div class="ted-box">'.$html_ted_code.'</div><div class="totals-box"><table class="total-table"><tr><td>MONTO NETO $</td><td align="right">'.$neto_fmt.'</td></tr><tr><td>IVA (19%) $</td><td align="right">'.$iva_fmt.'</td></tr><tr><td class="grand-total">TOTAL $</td><td class="grand-total" align="right">'.$total_fmt.'</td></tr></table></div><div class="clear"></div></div></body></html>';
-    
+$html = '<html><head><meta charset="UTF-8"><style>@page{margin:15mm 15mm 15mm 15mm;}body{font-family:Helvetica,sans-serif;font-size:11px;color:#333;line-height:1.3;}.header{width:100%;margin-bottom:30px;}.col-left{float:left;width:60%;}.col-right{float:right;width:33%;border:3px solid #CC0000;padding:15px 10px;text-align:center;color:#CC0000;font-weight:bold;}.clear{clear:both;}.logo-img{width:180px;margin-bottom:10px;}.box{border:1px solid #000;padding:5px;margin-bottom:15px;}.box table{width:100%;}.items-table{width:100%;border-collapse:collapse;margin-top:10px;}.items-table th{background-color:#f5f5f5;border:1px solid #000;padding:6px;text-align:left;font-size:10px;font-weight:bold;}.footer{margin-top:30px;}.ted-box{float:left;width:350px;text-align:center;padding-top:10px;}.totals-box{float:right;width:220px;}.total-table{width:100%;border-collapse:collapse;}.total-table td{padding:4px;font-size:12px;}.grand-total{border-top:2px solid #000;font-weight:bold;font-size:14px;padding-top:8px !important;}</style></head><body><div class="header"><div class="col-left"><img src="'.$logo_b64.'" class="logo-img"><br><div style="font-size:14px;font-weight:bold;text-transform:uppercase;">'.$RAZON_SOCIAL_EMISOR.'</div><div>Giro: '.$GIRO_EMISOR.'</div><div>'.$DIR_EMISOR.', '.$COMUNA_EMISOR.'</div><div>Email: admin@tabolango.cl</div></div><div class="col-right"><div style="font-size:16px;margin-bottom:8px;">R.U.T.: '.$RUT_EMISOR_FMT.'</div><div style="font-size:16px;margin-bottom:8px;background-color:#fff;">'.$nombre_dte.'</div><div style="font-size:16px;margin-bottom:8px;">'.$str_folio_impreso.'</div><div style="font-size:11px;color:#CC0000;">S.I.I. - LA FLORIDA</div></div><div class="clear"></div></div><div class="box"><table cellspacing="0" cellpadding="0" border="0"><tr><td width="80"><strong>SE&Ntilde;OR(ES):</strong></td><td>'.$cliente['RazonSocial'].'</td><td width="100" align="right"><strong>FECHA:</strong> '.$fecha_visual.'</td></tr><tr><td><strong>RUT:</strong></td><td colspan="2">'.$cliente['Rut'].'</td></tr><tr><td><strong>DIRECCI&Oacute;N:</strong></td><td colspan="2">'.$cliente['Direccion'].'</td></tr><tr><td><strong>COMUNA:</strong></td><td colspan="2">'.$cliente['Comuna'].' &nbsp;&nbsp;&nbsp;&nbsp; <strong>CIUDAD:</strong> '.$cliente['Ciudad'].'</td></tr></table></div><table class="items-table"><thead><tr><th width="50%">DESCRIPCI&Oacute;N</th><th width="15%" colspan="2" style="text-align:center;">CANTIDAD</th><th width="15%" style="text-align:right;">PRECIO UNIT.</th><th width="20%" style="text-align:right;">TOTAL</th></tr></thead><tbody>'.$filas.'</tbody></table>'.$html_referencia_bottom.'<div class="footer"><div class="ted-box">'.$html_ted_code.'</div><div class="totals-box"><table class="total-table"><tr><td>MONTO NETO $</td><td align="right">'.$neto_fmt.'</td></tr><tr><td>IVA (19%) $</td><td align="right">'.$iva_fmt.'</td></tr><tr><td class="grand-total">TOTAL $</td><td class="grand-total" align="right">'.$total_fmt.'</td></tr></table>'.$html_condicion_pago.'</div><div class="clear"></div></div></body></html>';    
     $options = new Options();
     $options->set('isRemoteEnabled', true);
     $options->set('defaultFont', 'Helvetica');
@@ -444,18 +480,13 @@ try {
     $stmt_ins->bind_param("ssissss", $id_pedido, $codigo_dte_db, $folio_final, $url_xml, $url_pdf, $estado_envio_db, $resp_api_db); 
     $stmt_ins->execute();
 
-    if ($MODO_SIMULACION) {
-        if ($tipo_doc === 'guia') {
-            $conn->query("UPDATE pedidos_activos SET url_guia = '$url_pdf' WHERE id_pedido = '$id_pedido'");
-        } else {
-            $conn->query("UPDATE pedidos_activos SET url_factura = '$url_pdf' WHERE id_pedido = '$id_pedido'");
-        }
+    // =========================================================================
+    // GUARDAR EN BASE DE DATOS (URL Y FOLIO) PARA AMBOS ENTORNOS
+    // =========================================================================
+    if ($tipo_doc === 'guia') {
+        $conn->query("UPDATE pedidos_activos SET numero_guia = '$folio_final', url_guia = '$url_pdf' WHERE id_pedido = '$id_pedido'");
     } else {
-        if ($tipo_doc === 'guia') {
-            $conn->query("UPDATE pedidos_activos SET numero_guia = '$folio_final', url_guia = '$url_pdf' WHERE id_pedido = '$id_pedido'");
-        } else {
-            $conn->query("UPDATE pedidos_activos SET numero_factura = '$folio_final', url_factura = '$url_pdf' WHERE id_pedido = '$id_pedido'");
-        }
+        $conn->query("UPDATE pedidos_activos SET numero_factura = '$folio_final', url_factura = '$url_pdf' WHERE id_pedido = '$id_pedido'");
     }
 
     $sim_msg = $MODO_SIMULACION ? " (Modo Borrador Seguro)" : " Esperando envío nocturno al SII.";
