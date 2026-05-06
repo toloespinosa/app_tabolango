@@ -1,6 +1,6 @@
 <?php
 require_once 'auth.php';
-// procesar_facturacion.php - V83.1: CLÁSICO CON NOTA DE DESCUENTO
+// procesar_facturacion.php - V83.2: LOGICA DE DIAS DE CREDITO CORREGIDA
 ob_start(); 
 
 header("Access-Control-Allow-Origin: *");
@@ -141,7 +141,6 @@ try {
     $check_col = $conn->query("SHOW COLUMNS FROM clientes LIKE 'ciudad'");
     $campo_ciudad = ($check_col && $check_col->num_rows > 0) ? ", C.ciudad" : "";
 
-    // Agregamos la consulta de porcentaje_descuento
     $sql = "SELECT P.producto, P.cantidad, P.precio_unitario, P.fecha_despacho, P.numero_guia, P.porcentaje_descuento,
             M.Variedad, M.calibre, M.formato, M.unidad, 
             C.rut_cliente, C.razon_social, C.giro, C.direccion, C.comuna, C.cliente as nombre_fantasia, C.dias_credito $campo_ciudad $campo_email
@@ -248,10 +247,19 @@ try {
         "Totales" => ["MontoNeto" => $suma_neto, "TasaIVA" => 19, "IVA" => $suma_iva, "MontoTotal" => $suma_total]
     ];
 
+    // =========================================================================
+    // LÓGICA DE DÍAS DE CRÉDITO PARA EL XML DEL SII
+    // =========================================================================
     if ($codigo_dte == 33) {
-        $plazo_vencimiento = ($dias_credito_cliente >= 1) ? $dias_credito_cliente : 1;
+        if ($dias_credito_cliente > 1) {
+            $plazo_vencimiento = $dias_credito_cliente;
+        } else {
+            // Si es 1 día de crédito, equivale a cobrar hoy mismo (0 días)
+            $plazo_vencimiento = 0;
+        }
         $encabezado_base['IdentificacionDTE']["FechaVencimiento"] = date("Y-m-d", strtotime("$fecha_hoy + $plazo_vencimiento days"));
     }
+    
     if ($codigo_dte == 52) {
         $encabezado_base['IdentificacionDTE']['TipoDespacho'] = 2; 
         $encabezado_base['IdentificacionDTE']['IndTraslado'] = 1; 
@@ -402,13 +410,21 @@ try {
     $iva_fmt = number_format($suma_iva, 0, ',', '.');
     $total_fmt = number_format($suma_total, 0, ',', '.');
 
+    // =========================================================================
+    // LÓGICA DE DÍAS DE CRÉDITO PARA EL PDF VISUAL
+    // =========================================================================
     $html_condicion_pago = "";
     if ($codigo_dte == 33) {
-        if ($dias_credito_cliente >= 1) {
-            $dias_restar = $dias_credito_cliente - 1;
-            $fecha_limite_visual = date("d-m-Y", strtotime("$fecha_hoy + $dias_restar days"));
+        if ($dias_credito_cliente > 1) {
+            // Si es mayor a 1, sumamos los días exactos (ej: +2 días)
+            $fecha_limite_visual = date("d-m-Y", strtotime("$fecha_hoy + $dias_credito_cliente days"));
+            $html_condicion_pago = '<div style="margin-top:8px; text-align:right; font-size:11px; color:#CC0000; font-weight:bold; border-top:1px solid #ccc; padding-top:6px;">PAGAR ANTES DEL:<br>' . $fecha_limite_visual . '</div>';
+        } elseif ($dias_credito_cliente == 1) {
+            // Si es exactamente 1 día de crédito, equivale a cobrar hoy
+            $fecha_limite_visual = date("d-m-Y", strtotime("$fecha_hoy"));
             $html_condicion_pago = '<div style="margin-top:8px; text-align:right; font-size:11px; color:#CC0000; font-weight:bold; border-top:1px solid #ccc; padding-top:6px;">PAGAR ANTES DEL:<br>' . $fecha_limite_visual . '</div>';
         } else {
+            // Contado o 0 días
             $html_condicion_pago = '<div style="margin-top:8px; text-align:right; font-size:11px; color:#0F4B29; font-weight:bold; border-top:1px solid #ccc; padding-top:6px;">CONDICIÓN:<br>AL CONTADO</div>';
         }
     }
@@ -418,7 +434,6 @@ try {
         $html_referencia_bottom = '<div style="margin-top: 15px; border: 1px solid #ccc; background-color: #f9f9f9; padding: 8px; font-size: 11px;"><strong>REFERENCIA:</strong><table width="100%" style="margin-top:4px;"><tr><td width="20%"><strong>Tipo Doc:</strong> Gu&iacute;a de Despacho (52)</td><td width="20%"><strong>Folio:</strong> ' . $folio_guia_ref . '</td><td width="20%"><strong>Fecha:</strong> ' . date("d-m-Y", strtotime($fecha_guia_ref)) . '</td><td><strong>Razón:</strong> Gu&iacute;a de despacho relacionada</td></tr></table></div>';
     }
 
-    // CONSTRUCCIÓN DE LAS FILAS Y NOTAS DE DESCUENTO
     $filas = "";
     $notas_descuento = [];
 
@@ -426,13 +441,11 @@ try {
         $desc_html = !empty($d['Descripcion']) ? '<br><span style="font-size:10px; color:#555; font-style:italic;">' . $d['Descripcion'] . '</span>' : '';
         $filas .= '<tr><td style="padding:5px 5px 5px 10px; border-bottom:1px solid #ddd;"><strong>'.$d['Nombre'].'</strong>'.$desc_html.'</td><td style="text-align:right; padding:5px 2px 5px 5px; border-bottom:1px solid #ddd; width:30px;">'.number_format($d['Cantidad'], 0, '', '.').'</td><td style="text-align:left; padding:5px 5px 5px 2px; border-bottom:1px solid #ddd; width:50px; font-size:10px; color:#444;">'.$d['UnidadMedida'].'</td><td style="text-align:right; padding:5px 10px 5px 5px; border-bottom:1px solid #ddd;">$'.number_format($d['Precio'], 0, ',', '.').'</td><td style="text-align:right; padding:5px 10px 5px 5px; border-bottom:1px solid #ddd;">$'.number_format($d['MontoItem'], 0, ',', '.').'</td></tr>';
         
-        // Agregar nota si hubo descuento
         if (isset($d['DescuentoPct']) && $d['DescuentoPct'] > 0) {
             $notas_descuento[] = "* Se aplica " . $d['DescuentoPct'] . "% de descuento en " . $d['Nombre'] . " por venta en volumen.";
         }
     }
 
-    // Preparar el HTML de las notas
     $html_notas = "";
     if (!empty($notas_descuento)) {
         $notas_unicas = array_unique($notas_descuento);
