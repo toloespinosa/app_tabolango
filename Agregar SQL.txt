@@ -42,3 +42,4 @@ TRUNCATE TABLE `app_movimientos_bancarios`;
 ALTER TABLE `app_movimientos_bancarios`
 ADD COLUMN `rut_remitente` varchar(20) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `descripcion`,
 ADD COLUMN `nombre_remitente` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `rut_remitente`;
+

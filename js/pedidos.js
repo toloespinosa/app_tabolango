@@ -70,8 +70,6 @@ function procesarProductosVisuales(productosRaw) {
     listaProductosMaster = Object.values(grupos);
 }
 
-// ====== FRAGMENTO 1: ENCONTRAR Y REEMPLAZAR LA FUNCION loadOrders ====== 
-
 async function loadOrders() {
     try {
         const userEmail = obtenerEmailLimpio();
@@ -86,19 +84,14 @@ async function loadOrders() {
             return;
         } else { grid.classList.remove('is-empty'); }
 
-        // 🔥 OBTENER ROL INYECTADO DESDE PHP 🔥
         const roleBridge = document.getElementById('session-rol-bridge');
         const userRoleID = roleBridge ? parseInt(roleBridge.innerText.trim()) : 0;
 
-        console.log(`🚦 TABOLANGO DEBUG -> Usuario: ${userEmail} | ROL ID: ${userRoleID}`);
-
-        // Asignación de Permisos Exactos:
         const isAdmin = (userRoleID === 1);
         const isEditor = (userRoleID === 2);
         const isConductor = (userRoleID === 3);
         const isVendedor = (userRoleID === 4);
 
-        // Permisos de Acciones
         const canCreateGuide = (isAdmin || isEditor);
         const canEditOrder = (isAdmin || isEditor || isVendedor);
         const canSendWA = (isAdmin || isEditor || isVendedor);
@@ -116,6 +109,8 @@ async function loadOrders() {
             const cant = parseFloat(current.cantidad || 0);
             const pTotal = parseFloat(current.total_venta || (pUnitario * cant) || 0);
             const varName = current.variedad || current.Variedad || '';
+            const descPct = parseFloat(current.porcentaje_descuento || 0);
+            const pOriginal = parseFloat(current.precio_original || pUnitario);
 
             acc[id].products.push({
                 nombre: current.producto,
@@ -126,7 +121,9 @@ async function loadOrders() {
                 unidad: current.unidad_real || current.unidad || 'Kg',
                 color: current.color_diferenciador || '#0F4B29',
                 precio_u: pUnitario,
-                precio_t: pTotal
+                precio_t: pTotal,
+                porcentaje_descuento: descPct,
+                precio_original: pOriginal
             });
             acc[id].total_acumulado += pTotal;
             return acc;
@@ -140,7 +137,6 @@ async function loadOrders() {
             const f = (order.fecha_despacho || '').split('-');
             const fechaFormateada = f.length === 3 ? `${f[2]}/${f[1]}/${f[0]}` : order.fecha_despacho;
 
-            // --- LÓGICA VISUAL GUÍA ---
             let bloqueGuia = '';
             let escudoGuia = '';
             let isGuiaSimulada = false;
@@ -165,10 +161,8 @@ async function loadOrders() {
 
             let escudoFactura = order.numero_factura ? `<span class="factura-badge" style="background:#e8f6f3; color:#0F4B29; border-color:#0F4B29;">F: ${order.numero_factura}</span>` : '';
 
-            // --- LÓGICA BOTÓN WHATSAPP Y EDICIÓN ---
             let btnWhatsapp = '';
             if (canSendWA) {
-                // AHORA EVALUAMOS 'detalle_enviado' PARA EL BOTÓN DE DETALLE DE WHATSAPP
                 let detalleEnviado = order.detalle_enviado && order.detalle_enviado !== "0000-00-00 00:00:00" && order.detalle_enviado !== null;
                 let bgWa = detalleEnviado ? "#3498db" : "#25D366";
                 let shadowWa = detalleEnviado ? "#2980b9" : "#1da851";
@@ -183,13 +177,10 @@ async function loadOrders() {
 
             let btnEdit = canEditOrder ? `<button class="btn-edit-order" onclick="event.stopPropagation(); abrirEditor('${order.id_pedido}')">✏️ EDITAR PEDIDO</button>` : '';
 
-            // --- LÓGICA DE PRECIO (CONDUCTOR) ---
             let htmlPrecioTotal = isConductor
                 ? `<span class="order-total" style="color:#27ae60; font-size:15px; display:flex; align-items:center; gap:6px;">🚐 <span>A ENTREGAR</span></span>`
                 : `<span class="order-total">${formatCLP(order.total_acumulado)} <small style="font-size:11px; opacity:0.7;">+ IVA</small></span>`;
 
-            // 🔥 LÓGICA CLIC EN DETALLE (EVITAR APERTURA MODAL) 🔥
-            // Si es conductor, forzamos cursor por defecto y le quitamos la función 'verDetalleLista'.
             let eventoDetalle = isConductor
                 ? `style="cursor:default;"`
                 : `onclick="event.stopPropagation(); verDetalleLista('${order.id_pedido}')" style="cursor:zoom-in;"`;
@@ -219,7 +210,10 @@ async function loadOrders() {
                                             <div class="product-item" style="border-left: 6px solid ${p.color};">
                                                 <div style="display:flex; align-items: center; flex:1; gap: 6px;">
                                                     <div style="display:flex; flex-direction:column; flex:1; justify-content:center;">
-                                                        <span class="product-name" style="font-weight:700; line-height:1.1;">${p.nombre}</span>
+                                                        <div>
+                                                            <span class="product-name" style="font-weight:700; line-height:1.1;">${p.nombre}</span>
+                                                            ${p.porcentaje_descuento > 0 ? `<span style="background:#ffebee; color:#e74c3c; font-size:9px; padding:2px 4px; border-radius:4px; margin-left:5px; font-weight:bold; vertical-align:middle; border:1px solid #ffcdd2;">🔥 -${p.porcentaje_descuento}%</span>` : ''}
+                                                        </div>
                                                         ${p.variedad ? `<span style="font-size:10px; color:#666; font-style:italic;">${p.variedad}</span>` : ''}
                                                     </div>
                                                     <div style="display:flex; flex-direction:column; align-items:flex-end; margin-right:5px;">
@@ -253,14 +247,10 @@ async function loadOrders() {
     } catch (err) { console.error(err); }
 }
 
-
-// ====== FRAGMENTO 2: ENCONTRAR Y REEMPLAZAR LA FUNCION verDetalleLista ====== 
-
 async function verDetalleLista(idPedido) {
     const pedido = window.currentOrders[idPedido];
     if (!pedido) return;
 
-    // 🔥 OBTENER ROL INYECTADO DESDE PHP 🔥
     const roleBridge = document.getElementById('session-rol-bridge');
     const userRoleID = roleBridge ? parseInt(roleBridge.innerText.trim()) : 0;
     const isConductor = (userRoleID === 3);
@@ -285,18 +275,32 @@ async function verDetalleLista(idPedido) {
         const sub = p.precio_t || (p.precio_u * p.cantidad);
         totalNeto += sub;
 
-        // El conductor NO debe ver los precios Unitarios ni el subtotal
-        let htmlPrecioUnitario = isConductor ? '' : `<span style="color:#ddd">|</span> <span class="unit-price-tag">Unit: ${fmt.format(p.precio_u)}</span>`;
+        let htmlPrecioUnitario = '';
+        if (!isConductor) {
+            if (p.porcentaje_descuento > 0) {
+                htmlPrecioUnitario = `
+                    <span style="color:#ccc; margin:0 6px;">|</span>
+                    <span style="font-size:11px; color:#888;">Base:</span>
+                    <span style="text-decoration:line-through; color:#888; font-size:11px; margin-left:2px; margin-right:4px;">${fmt.format(p.precio_original)}</span>
+                    <span style="background:#ffebee; color:#e74c3c; padding:2px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-right:4px; border:1px solid #ffcdd2;">-${p.porcentaje_descuento}%</span>
+                    <span class="unit-price-tag" style="color:#0F4B29; font-weight:900;">Final: ${fmt.format(p.precio_u)}</span>
+                `;
+            } else {
+                htmlPrecioUnitario = `<span style="color:#ddd; margin:0 6px;">|</span> <span class="unit-price-tag">Unit: ${fmt.format(p.precio_u)}</span>`;
+            }
+        }
+
         let htmlPrecioTotal = isConductor ? '' : `<div class="item-price-total">${fmt.format(sub)}</div>`;
+        let lblDesc = p.porcentaje_descuento > 0 ? `<span style="background:#ffebee; color:#e74c3c; border:1px solid #ffcdd2; font-size:9px; padding:2px 4px; border-radius:4px; margin-left:5px; font-weight:bold;">🔥 TRAMO APLICADO</span>` : '';
 
         return `
         <div class="item-row">
             <div class="item-info">
                 <span class="item-title">
-                    ${p.nombre} 
+                    ${p.nombre} ${lblDesc}
                     ${p.variedad ? `<span style="font-weight:400; color:#666; font-size:12px; margin-left:5px;">(${p.variedad})</span>` : ''}
                 </span>
-                <div class="item-meta">
+                <div class="item-meta" style="display:flex; align-items:center; flex-wrap:wrap; margin-top:4px;">
                     <span class="meta-tag">Cant:</span> <span class="meta-val" style="color:#0F4B29; font-weight:bold;">${Math.round(p.cantidad)} ${p.unidad}</span>
                     ${htmlPrecioUnitario}
                 </div>
@@ -317,7 +321,6 @@ async function verDetalleLista(idPedido) {
     const iva = Math.round(totalNeto * 0.19);
     const total = totalNeto + iva;
 
-    // Resumen del Footer también Condicionado
     let footerResumenHtml = '';
     if (isConductor) {
         footerResumenHtml = `
@@ -373,11 +376,14 @@ async function abrirEditor(idPedido) {
     if (inputFecha) inputFecha.value = pedido.fecha_despacho;
 
     const contenedor = document.getElementById('editor-productos-container');
-    contenedor.innerHTML = '';
+    contenedor.innerHTML = '<div style="padding:30px; text-align:center; color:#0F4B29; font-weight:bold;">Cargando configuración de descuentos... ⏳</div>';
+    document.getElementById('modal-editar-pedido').style.display = 'flex';
 
-    pedido.products.forEach(prod => {
+    const filasPromises = pedido.products.map(async (prod) => {
         let idReal = '';
         let color = '#ccc';
+        let tramosStr = "%5B%5D";
+        let precioBase = prod.precio_original || prod.precio_u;
 
         const match = listaProductosPlana.find(p =>
             p.producto === prod.nombre &&
@@ -389,23 +395,38 @@ async function abrirEditor(idPedido) {
         if (match) {
             idReal = match.id_producto;
             color = match.color_diferenciador;
+
+            try {
+                const sep = URL_PRECIOS.includes('?') ? '&' : '?';
+                const resp = await fetch(`${URL_PRECIOS}${sep}action=get_price_by_client&cliente=${clienteIdEditor}&producto=${idReal}`);
+                const data = await resp.json();
+                precioBase = parseFloat(data.precio);
+                if (data.tramos) {
+                    tramosStr = encodeURIComponent(JSON.stringify(data.tramos));
+                }
+            } catch (e) { console.warn("Error tramos editor", e); }
         }
 
         let detalleTexto = `${prod.calibre} - ${prod.formato}`;
         let nombreDisplay = prod.nombre;
-        if (prod.variedad) {
-            nombreDisplay += " (" + prod.variedad + ")";
-        }
+        if (prod.variedad) nombreDisplay += " (" + prod.variedad + ")";
 
-        agregarFilaEditor(idReal, prod.cantidad, nombreDisplay, detalleTexto, color, prod.precio_u);
+        return { idReal, cant: prod.cantidad, nombreDisplay, detalleTexto, color, precioBase, tramosStr };
     });
 
-    document.getElementById('modal-editar-pedido').style.display = 'flex';
+    const filasData = await Promise.all(filasPromises);
+
+    contenedor.innerHTML = '';
+    filasData.forEach(f => {
+        agregarFilaEditor(f.idReal, f.cant, f.nombreDisplay, f.detalleTexto, f.color, f.precioBase, f.tramosStr);
+    });
+
+    window.calcEditor();
 }
 
 function cerrarEditor() { document.getElementById('modal-editar-pedido').style.display = 'none'; }
 
-function agregarFilaEditor(id = '', qty = 1, nombre = 'Toca para elegir...', detalle = '', color = '#eee', precio = 0) {
+function agregarFilaEditor(id = '', qty = 1, nombre = 'Toca para elegir...', detalle = '', color = '#eee', precio = 0, tramosEncoded = "%5B%5D") {
     const contenedor = document.getElementById('editor-productos-container');
     const rowId = Date.now() + Math.random().toString(36).substr(2, 9);
     const div = document.createElement('div');
@@ -413,21 +434,58 @@ function agregarFilaEditor(id = '', qty = 1, nombre = 'Toca para elegir...', det
     div.id = `row-${rowId}`;
     div.style.borderLeft = `5px solid ${color}`;
     div.setAttribute('data-price', precio);
+    div.setAttribute('data-tramos', decodeURIComponent(tramosEncoded));
 
     div.innerHTML = `
         <div class="display-trigger" onclick="abrirSelectorEnEditor('${rowId}')">
             <div style="flex:1">
                 <div style="font-weight:800; color:#333; line-height:1.2" class="p-name">${nombre}</div>
                 <div style="font-size:11px; color:#888; margin-top:2px;" class="p-detail">${detalle}</div>
+                <div class="desc-badge-editor" style="color:#e74c3c; background:#ffebee; padding:2px 5px; border-radius:4px; font-size:10px; font-weight:bold; margin-top:5px; border:1px solid #ffcdd2; display:none; width:max-content;"></div>
             </div>
         </div>
         <input type="hidden" class="p-id-hidden" value="${id}">
         <div class="m-fila-controles">
-            <input type="number" class="p-qty" value="${qty}" min="0.1" step="any" inputmode="decimal">
-            <button type="button" class="m-btn-remove" onclick="this.closest('.m-fila').remove()">✕</button>
+            <input type="number" class="p-qty" value="${qty}" min="0.1" step="any" inputmode="decimal" oninput="window.calcEditor()">
+            <button type="button" class="m-btn-remove" onclick="this.closest('.m-fila').remove(); window.calcEditor();">✕</button>
         </div>`;
     contenedor.appendChild(div);
 }
+
+window.calcEditor = function () {
+    document.querySelectorAll('#editor-productos-container .m-fila').forEach(f => {
+        const precioBase = parseFloat(f.getAttribute('data-price')) || 0;
+        const inputCant = f.querySelector('.p-qty');
+        const cantidad = parseFloat(inputCant.value) || 0;
+
+        let descuentoPct = 0;
+        const tramosRaw = f.getAttribute('data-tramos');
+        const tramos = tramosRaw ? JSON.parse(tramosRaw) : [];
+
+        for (let t of tramos) {
+            if (cantidad >= t.min) {
+                descuentoPct = t.pct;
+                break;
+            }
+        }
+
+        const precioFinal = precioBase * (1 - (descuentoPct / 100));
+
+        const badge = f.querySelector('.desc-badge-editor');
+        if (badge) {
+            if (descuentoPct > 0) {
+                badge.innerText = `🔥 -${descuentoPct}% dto. aplicado`;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        f.setAttribute('data-precio-calculado', precioFinal);
+        f.setAttribute('data-pct-descuento', descuentoPct);
+        f.setAttribute('data-precio-original', precioBase);
+    });
+};
 
 function abrirSelectorEnEditor(rowId) {
     filaActivaEditor = rowId;
@@ -508,6 +566,7 @@ async function renderizarGridVisual(filtro = "") {
             const p = formatos[ftoKey];
             let precioFinal = 0;
             let esEspecial = false;
+            let tramosStr = "%5B%5D";
 
             if (clienteIdEditor) {
                 try {
@@ -516,6 +575,9 @@ async function renderizarGridVisual(filtro = "") {
                     const data = await resp.json();
                     precioFinal = parseFloat(data.precio);
                     esEspecial = (data.origen === "categoria");
+                    if (data.tramos) {
+                        tramosStr = encodeURIComponent(JSON.stringify(data.tramos));
+                    }
                 } catch (e) {
                     precioFinal = parseFloat(p.precio_actual || p.precio_por_kilo || 0);
                 }
@@ -539,7 +601,7 @@ async function renderizarGridVisual(filtro = "") {
             const nombreSafe = nombreFull.replace(/'/g, "\\'");
 
             grid.innerHTML += `
-                <div class="grid-item" onclick="finalizarSeleccionEditor('${p.id_producto}', '${nombreSafe}', '${p.calibre}', '${p.formato}', '${grupo.color}', ${precioFinal})">
+                <div class="grid-item" onclick="finalizarSeleccionEditor('${p.id_producto}', '${nombreSafe}', '${p.calibre}', '${p.formato}', '${grupo.color}', ${precioFinal}, '${tramosStr}')">
                     <div class="grid-media"><b style="font-size:16px; color:#333 !important;">${p.formato}</b></div>
                     <span style="font-size:14px; font-weight:900; color:#333 !important;">${textoPrecio}</span>
                     <div class="card-color-footer" style="background:${esEspecial ? '#E98C00' : grupo.color}"></div>
@@ -569,7 +631,7 @@ function filtrarGridVisual(val) {
     Array.from(items).forEach(item => { if (item.classList.contains('btn-volver-modal')) return; item.style.display = item.innerText.toLowerCase().includes(val.toLowerCase()) ? '' : 'none'; });
 }
 
-function finalizarSeleccionEditor(id, nombre, calibre, formato, color, precio) {
+function finalizarSeleccionEditor(id, nombre, calibre, formato, color, precio, tramosEncoded = "%5B%5D") {
     const fila = document.getElementById(`row-${filaActivaEditor}`);
     if (fila) {
         fila.querySelector('.p-id-hidden').value = id;
@@ -577,6 +639,8 @@ function finalizarSeleccionEditor(id, nombre, calibre, formato, color, precio) {
         fila.querySelector('.p-detail').innerText = `${calibre} - ${formato}`;
         fila.style.borderLeft = `5px solid ${color}`;
         fila.setAttribute('data-price', precio);
+        fila.setAttribute('data-tramos', decodeURIComponent(tramosEncoded));
+        window.calcEditor();
     }
     document.getElementById('modal-selector-visual').style.display = 'none';
 }
@@ -584,13 +648,24 @@ function finalizarSeleccionEditor(id, nombre, calibre, formato, color, precio) {
 async function guardarEdicionAPI() {
     if (!idPedidoEnEdicion) return;
     const filas = document.querySelectorAll('#editor-productos-container .m-fila');
+
     let ids = []; let cants = []; let precios = [];
+    let pOriginales = []; let pDescuentos = [];
 
     filas.forEach(fila => {
         const id = fila.querySelector('.p-id-hidden').value;
         const cant = fila.querySelector('.p-qty').value;
-        const precio = fila.getAttribute('data-price') || 0;
-        if (id && cant > 0) { ids.push(id); cants.push(cant); precios.push(precio); }
+        const precio = fila.getAttribute('data-precio-calculado') || fila.getAttribute('data-price') || 0;
+        const orig = fila.getAttribute('data-precio-original') || fila.getAttribute('data-price') || 0;
+        const pct = fila.getAttribute('data-pct-descuento') || 0;
+
+        if (id && cant > 0) {
+            ids.push(id);
+            cants.push(cant);
+            precios.push(precio);
+            pOriginales.push(orig);
+            pDescuentos.push(pct);
+        }
     });
 
     if (ids.length === 0) {
@@ -610,6 +685,8 @@ async function guardarEdicionAPI() {
     formData.append('producto', ids.join(' | '));
     formData.append('cantidad', cants.join(' | '));
     formData.append('precios_venta', precios.join(' | '));
+    formData.append('pct_descuentos', pDescuentos.join(' | '));
+    formData.append('precios_originales', pOriginales.join(' | '));
 
     const inputFecha = document.getElementById('editor-fecha-despacho');
     if (inputFecha && inputFecha.value) formData.append('fecha_despacho', inputFecha.value);
@@ -673,7 +750,6 @@ function abrirModal(url) {
 function cerrarModal() { document.getElementById('modal-factura').style.display = 'none'; }
 function flipCard(event, id) { if (event) event.stopPropagation(); document.getElementById(`card-${id}`).classList.toggle('is-flipped'); }
 
-
 function cerrarDetalle() { document.getElementById('modal-detalle-pedido').style.display = 'none'; }
 function copiarRutLimpio(rutOriginal) {
     let rutLimpio = rutOriginal.split('-')[0].replace(/\./g, '').trim();
@@ -685,12 +761,62 @@ function copiarRutLimpio(rutOriginal) {
         setTimeout(() => toast.remove(), 2000);
     });
 }
+
 async function eliminarDoc(id, tipo) {
-    const result = await Swal.fire({ title: `¿Borrar ${tipo}?`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#e74c3c' });
+    const result = await Swal.fire({
+        title: `¿Borrar ${tipo}?`,
+        text: "Esta acción no se puede deshacer.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e74c3c',
+        confirmButtonText: 'Sí, borrar',
+        cancelButtonText: 'Cancelar'
+    });
+
     if (!result.isConfirmed) return;
-    const formData = new FormData(); formData.append('action', 'delete_document'); formData.append('id_pedido', id); formData.append('tipo', tipo);
-    try { const res = await fetch(URL_SUBIR, { method: 'POST', body: formData }); const data = await res.json(); if (data.status === 'success') loadOrders(); } catch (e) { }
+
+    Swal.fire({
+        title: 'Borrando...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    const formData = new FormData();
+    formData.append('action', 'delete_document');
+    formData.append('id_pedido', id);
+    formData.append('tipo', tipo);
+
+    try {
+        const res = await fetch(URL_SUBIR, { method: 'POST', body: formData });
+        const textRaw = await res.text();
+        let data;
+
+        try {
+            data = JSON.parse(textRaw);
+        } catch (parseError) {
+            console.error("TEXTO DEVUELTO POR PHP:", textRaw);
+            Swal.fire('Error PHP', 'El servidor devolvió este error: <br><br><code>' + textRaw.substring(0, 150) + '...</code>', 'error');
+            return;
+        }
+
+        if (data.status === 'success') {
+            Swal.fire({
+                title: '¡Borrado!',
+                text: 'El documento fue eliminado correctamente.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            loadOrders();
+        } else {
+            Swal.fire('Error del servidor', data.message || 'No se pudo eliminar el documento.', 'error');
+        }
+    } catch (e) {
+        console.error("Error de conexión:", e);
+        Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+    }
 }
+
 async function subirGuia(input, id) {
     if (!input.files[0]) return;
     const formData = new FormData(); formData.append('foto_guia', input.files[0]); formData.append('id_pedido', id); formData.append('action', 'upload_guia_despacho');
@@ -701,7 +827,6 @@ function openQR(idPedido, token) {
     const existing = document.getElementById('dynamic-qr-modal');
     if (existing) existing.remove();
 
-    // Generar ruta dinámica base al entorno local
     const baseUrl = window.location.origin;
     const urlValidacion = `${baseUrl}/validar-entrega?token=${token}`;
 
@@ -822,7 +947,6 @@ function llamarPHPComanda() {
 async function generarDocumento(tipo, idPedido) {
     const nombreDoc = tipo === 'guia' ? 'Guía de Despacho' : 'Factura Electrónica';
 
-    // 1. Confirmación inicial
     const confirmacion = await Swal.fire({
         title: `¿Generar ${nombreDoc}?`,
         text: `Se emitirá el documento para el pedido ${idPedido}`,
@@ -836,13 +960,13 @@ async function generarDocumento(tipo, idPedido) {
     if (!confirmacion.isConfirmed) return;
 
     const btn = document.getElementById(`btn-confirmar-emision`);
-    const txtOrig = btn ? btn.innerText : '';
+    // Guardamos texto por si falla (para restaurarlo)
+    const txtOrig = btn ? btn.innerText : 'CONFIRMAR EMISIÓN';
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ EMITIENDO...'; }
 
-    // 2. ALERTA DE CARGA CON SPINNER (¡La magia visual!)
     Swal.fire({
         title: `Generando ${nombreDoc}...`,
-        html: 'Por favor espera, emitiendo Guía de Despacho.',
+        html: 'Por favor espera...',
         allowOutsideClick: false,
         showConfirmButton: false,
         didOpen: () => { Swal.showLoading(); }
@@ -860,7 +984,6 @@ async function generarDocumento(tipo, idPedido) {
         try {
             data = JSON.parse(rawText);
         } catch (parseError) {
-            // 🚨 EL SERVIDOR CORTÓ LA LLAMADA, PERO SÍ SE HIZO
             await Swal.fire({
                 icon: 'success', title: `¡${nombreDoc} Generada!`, text: 'El documento se emitió correctamente.', timer: 2000, showConfirmButton: false
             });
@@ -877,7 +1000,6 @@ async function generarDocumento(tipo, idPedido) {
             loadOrders();
         } else {
             Swal.fire({ icon: 'error', title: 'Error', text: data.message });
-            if (btn) { btn.disabled = false; btn.innerText = txtOrig; }
         }
 
     } catch (e) {
@@ -887,12 +1009,27 @@ async function generarDocumento(tipo, idPedido) {
         });
         if (typeof window.cerrarVistaPrevia === 'function') window.cerrarVistaPrevia();
         loadOrders();
+    } finally {
+        // 🔥 FIX CRÍTICO: Pase lo que pase, el botón se restaura a su estado original
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = txtOrig;
+        }
     }
 }
 
 async function abrirVistaPrevia(tipo, idPedido) {
     const pedido = window.currentOrders[idPedido];
     if (!pedido) return Swal.fire('Error', 'No se encontró el pedido', 'error');
+
+    // 🔥 FIX CRÍTICO 2: Limpiamos el botón CADA VEZ que se abre el modal
+    const btnEmitir = document.getElementById('btn-confirmar-emision');
+    if (btnEmitir) {
+        btnEmitir.disabled = false;
+        btnEmitir.innerHTML = "CONFIRMAR EMISIÓN";
+        btnEmitir.onclick = function () { window.cerrarVistaPrevia(); generarDocumento(tipo, idPedido); };
+    }
+
     document.getElementById('vp-tipo-doc').innerText = (tipo === 'guia') ? 'GUÍA DE DESPACHO (52)' : 'FACTURA ELECTRÓNICA (33)';
     const container = document.getElementById('vp-items-container');
     container.innerHTML = '';
@@ -926,7 +1063,6 @@ async function abrirVistaPrevia(tipo, idPedido) {
     document.getElementById('vp-iva').innerText = fmt.format(iva);
     document.getElementById('vp-total').innerText = fmt.format(suma + iva);
 
-    document.getElementById('btn-confirmar-emision').onclick = function () { window.cerrarVistaPrevia(); generarDocumento(tipo, idPedido); };
     document.getElementById('modal-vista-previa').style.display = 'flex';
 }
 
@@ -936,7 +1072,6 @@ window.cerrarVistaPrevia = function () {
 };
 
 // --- FUNCIONES ENVÍO WHATSAPP MEJORADAS ---
-
 async function prepararEnvioWhatsapp(idPedido) {
     const pedido = window.currentOrders[idPedido];
     if (!pedido) return;

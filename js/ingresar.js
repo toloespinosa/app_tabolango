@@ -1,7 +1,6 @@
 // CONFIGURACIÓN API
 const URL_API_FORM = window.getApi('form.php');
 const URL_API_CLI = window.getApi('detalle-cliente.php?action=list_clients');
-// La API de productos suele ser api.php
 const URL_API_PROD = window.getApi('api.php?action=get_products');
 
 let listaProductosMaster = [];
@@ -10,18 +9,13 @@ let contadorFilas = 0;
 let filaActivaParaProducto = null;
 let grupoSeleccionado = null;
 
-// --- VARIABLE GLOBAL NUEVA ---
 let nombreCategoriaClienteActiva = "";
-
-// NIVELES: 0=Categoria, 1=Variedad, 2=Calibre, 3=Formato
 let nivelProd = 0;
 let seleccionadoCat = null;
 let seleccionadoVar = null;
 let seleccionadoCal = null;
 
-// =========================================================
 // 1. INICIALIZACIÓN PRINCIPAL
-// =========================================================
 document.addEventListener('DOMContentLoaded', async () => {
     const orderForm = document.getElementById('orderForm');
     if (!orderForm) return;
@@ -46,14 +40,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error("Error inicializando:", e);
     }
 
-    // ENVÍO DE FORMULARIO (OPTIMIZADO CON SWEETALERT2)
     orderForm.onsubmit = async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btnEnviar');
         const cli = document.getElementById('cliente_hidden').value;
         const fecha = document.getElementById('fecha_entrega').value;
 
-        // Alerta: Faltan datos básicos
         if (!cli || !fecha) {
             return Swal.fire({
                 ...window.swalConfig,
@@ -71,7 +63,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             arrayCants.push(cantidad);
         });
 
-        // Alerta: No se confirmaron productos
         if (!arrayProds.length) {
             return Swal.fire({
                 ...window.swalConfig,
@@ -81,7 +72,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Estado de carga
         btn.disabled = true;
         document.getElementById('btnText').innerText = "REGISTRANDO...";
 
@@ -117,14 +107,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('btnText').innerText = "REGISTRAR PEDIDO";
         }
     };
-}); // <--- AQUÍ FALTABA ESTE CIERRE CRÍTICO
+});
 
-
-// =========================================================
 // 2. LÓGICA DE PROCESAMIENTO DE DATOS
-// =========================================================
-
-// --- LÓGICA DE CLIENTES (Rankeados por venta) ---
 function procesarClientesAgrupados(clientesRaw) {
     const clientesActivos = clientesRaw.filter(c => c.activo == "1");
 
@@ -134,8 +119,6 @@ function procesarClientesAgrupados(clientesRaw) {
             acc[nombreBase] = { nombreRaiz: nombreBase, sucursales: [], dataGlobal: null, total_grupo: 0 };
         }
         acc[nombreBase].sucursales.push(curr);
-
-        // Sumamos las compras (Viene del PHP)
         acc[nombreBase].total_grupo += parseFloat(curr.total_comprado || 0);
 
         if (curr.es_global == 1 || curr.es_global == "1" || !curr.cliente.includes(' - ')) {
@@ -144,28 +127,20 @@ function procesarClientesAgrupados(clientesRaw) {
         return acc;
     }, {});
 
-    // Convertimos el objeto en Array
     listaClientesMaster = Object.values(grupos);
-
-    // Ordenamos los grupos de clientes de mayor a menor venta
     listaClientesMaster.sort((a, b) => b.total_grupo - a.total_grupo);
 
-    // Ordenamos las sucursales internamente de mayor a menor venta
     listaClientesMaster.forEach(grupo => {
         grupo.sucursales.sort((a, b) => parseFloat(b.total_comprado || 0) - parseFloat(a.total_comprado || 0));
     });
 }
 
-// --- LÓGICA DE PRODUCTOS (Corrige Case-Sensitivity) ---
 function procesarProductosAgrupados(productosRaw) {
     const grupos = {};
     productosRaw.forEach(curr => {
         const productoNombre = curr.producto || "Sin Nombre";
-
-        // CORRECCIÓN: Leemos "variedad" en minúscula (como viene de la BD)
         const valorVariedad = curr.variedad || curr.Variedad || "";
         const variedad = (valorVariedad.trim() !== "") ? valorVariedad.trim() : "";
-
         const calibre = curr.calibre || "S/C";
         const formato = curr.formato || "Unidad";
 
@@ -188,10 +163,7 @@ function procesarProductosAgrupados(productosRaw) {
     listaProductosMaster = Object.values(grupos);
 }
 
-// =========================================================
-// 3. FUNCIONES GLOBALES DE INTERFAZ (Expuestas a window)
-// =========================================================
-
+// 3. FUNCIONES GLOBALES DE INTERFAZ
 window.renderizarGridProductos = async function (filtro = "") {
     const grid = document.getElementById('grid-productos');
     const titulo = document.querySelector('#modal-productos h3');
@@ -264,6 +236,7 @@ window.renderizarGridProductos = async function (filtro = "") {
             const p = formatos[ftoKey];
             let precioFinal = 0;
             let esEspecial = false;
+            let tramosStr = "%5B%5D";
 
             if (clienteId) {
                 try {
@@ -271,6 +244,9 @@ window.renderizarGridProductos = async function (filtro = "") {
                     const data = await resp.json();
                     precioFinal = parseFloat(data.precio);
                     esEspecial = (data.origen === "categoria");
+                    if (data.tramos) {
+                        tramosStr = encodeURIComponent(JSON.stringify(data.tramos));
+                    }
                 } catch (e) {
                     precioFinal = parseFloat(p.precio_actual || p.precio_por_kilo || 0);
                 }
@@ -291,7 +267,7 @@ window.renderizarGridProductos = async function (filtro = "") {
             const nombreFull = seleccionadoVar ? `${p.producto} ${seleccionadoVar}` : p.producto;
 
             const itemHtml = `
-            <div class="grid-item" onclick="window.finalizarSeleccionProducto('${p.id_producto}', '${nombreFull.replace(/'/g, "\\'")}', '${p.calibre}', '${p.formato}', ${precioFinal}, '${grupo.color}')">
+            <div class="grid-item" onclick="window.finalizarSeleccionProducto('${p.id_producto}', '${nombreFull.replace(/'/g, "\\'")}', '${p.calibre}', '${p.formato}', ${precioFinal}, '${grupo.color}', '${tramosStr}')">
                 <div class="grid-media"><b>${p.formato}</b></div>
                 <span style="font-size:15px; font-weight:900; color:#333;">
                     ${precioFinal > 0 ? window.formatearDinero(precioFinal) : 'Consultar'}
@@ -388,14 +364,16 @@ window.seleccionarNivelCategoria = function (nombreCat) {
     window.renderizarGridProductos();
 };
 
-window.finalizarSeleccionProducto = function (id, nombre, calibre, formato, precio, color) {
+window.finalizarSeleccionProducto = function (id, nombre, calibre, formato, precio, color, tramosEncoded = "%5B%5D") {
     const fila = document.getElementById(`f-${filaActivaParaProducto}`);
     fila.querySelector('.p-sel-hidden').value = id;
     fila.querySelector('.p-name-display').innerHTML = `
     <div style="color:#333; font-weight:bold;">${nombre}</div>
     <div style="font-size:11px; color:#666;">${calibre} - ${formato}</div>
+    <div class="desc-badge" style="color:#E98C00; font-size:11px; font-weight:bold; margin-top:3px; display:none;"></div>
 `;
     fila.setAttribute('data-price', precio);
+    fila.setAttribute('data-tramos', decodeURIComponent(tramosEncoded));
     fila.style.borderLeft = `6px solid ${color}`;
     window.cerrarModal('modal-productos');
     window.calc();
@@ -455,10 +433,33 @@ window.prepararSeleccionProducto = function (id) {
 window.calc = function () {
     let total = 0;
     document.querySelectorAll('.m-fila').forEach(f => {
-        const precio = parseFloat(f.getAttribute('data-price')) || 0;
+        const precioBase = parseFloat(f.getAttribute('data-price')) || 0;
         const inputCant = f.querySelector('.p-qty');
         const cantidad = parseFloat(inputCant.value) || 0;
-        total += precio * cantidad;
+
+        let descuentoPct = 0;
+        const tramosRaw = f.getAttribute('data-tramos');
+        const tramos = tramosRaw ? JSON.parse(tramosRaw) : [];
+
+        for (let t of tramos) {
+            if (cantidad >= t.min) {
+                descuentoPct = t.pct;
+                break;
+            }
+        }
+
+        const precioFinal = precioBase * (1 - (descuentoPct / 100));
+        total += precioFinal * cantidad;
+
+        const badge = f.querySelector('.desc-badge');
+        if (badge) {
+            if (descuentoPct > 0) {
+                badge.innerText = `🔥 -${descuentoPct}% descuento aplicado`;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
     });
     document.getElementById('total_pedido_display').innerText = window.formatearDinero(total);
 };

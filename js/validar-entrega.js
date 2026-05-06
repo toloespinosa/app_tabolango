@@ -1,4 +1,31 @@
 (function () {
+    // --- FIX MÓVIL PWA / NAV BAR (Inyección de CSS de Alta Prioridad) ---
+    const mobileFix = document.createElement('style');
+    mobileFix.innerHTML = `
+        /* Forzar z-index máximo para todos los modales de esta vista */
+        #full-screen-signature, #firma-modal, #email-modal, #custom-modal, #gps-modal {
+            z-index: 9999999 !important;
+        }
+        /* Ajuste de altura dinámica para evitar que quede debajo del menú */
+        #full-screen-signature {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            height: 100dvh !important; /* Altura dinámica real del dispositivo */
+            box-sizing: border-box;
+            background: #fff;
+        }
+        /* Darle un margen de seguridad extra a los botones inferiores */
+        #full-screen-signature > div:last-child,
+        #firma-modal > div:last-child {
+            padding-bottom: calc(40px + env(safe-area-inset-bottom)) !important;
+        }
+    `;
+    document.head.appendChild(mobileFix);
+    // ---------------------------------------------------------------------
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const API_URL = window.getApi('api.php');
@@ -32,13 +59,10 @@
     const ctxFirma = canvasFirma.getContext('2d');
     let dibujando = false;
 
-    // REEMPLAZA TU ANTIGUA FUNCIÓN trimCanvas POR ESTA:
     function normalizarFirma(c) {
-        // --- CONFIGURACIÓN: TAMAÑO FIJO DE SALIDA ---
         const ANCHO_FINAL = 800;
         const ALTO_FINAL = 400;
-        const PADDING = 20; // Margen interno para que la firma no toque los bordes
-        // --------------------------------------------
+        const PADDING = 20;
 
         const ctx = c.getContext('2d');
         const w = c.width;
@@ -46,13 +70,12 @@
         const imageData = ctx.getImageData(0, 0, w, h);
         const data = imageData.data;
 
-        // 1. ESCANEAR: Encontrar los límites del dibujo (Bounding Box)
         let minX = w, minY = h, maxX = 0, maxY = 0;
         let found = false;
 
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
-                if (data[(y * w + x) * 4 + 3] > 0) { // Si el pixel no es transparente
+                if (data[(y * w + x) * 4 + 3] > 0) {
                     if (x < minX) minX = x;
                     if (x > maxX) maxX = x;
                     if (y < minY) minY = y;
@@ -62,7 +85,6 @@
             }
         }
 
-        // Si el usuario no dibujó nada, devolvemos un canvas vacío del tamaño correcto
         if (!found) {
             const empty = document.createElement('canvas');
             empty.width = ANCHO_FINAL;
@@ -70,38 +92,27 @@
             return empty;
         }
 
-        // Dimensiones originales del garabato
         const contentW = maxX - minX + 1;
         const contentH = maxY - minY + 1;
 
-        // 2. CALCULAR ESCALA: ¿Cuánto debemos agrandar/achicar para que quepa?
-        // Calculamos el factor de escala manteniendo la proporción (aspect ratio)
         const scaleX = (ANCHO_FINAL - (PADDING * 2)) / contentW;
         const scaleY = (ALTO_FINAL - (PADDING * 2)) / contentH;
-        const scale = Math.min(scaleX, scaleY); // Usamos el menor para que quepa todo
+        const scale = Math.min(scaleX, scaleY);
 
-        // Nuevas dimensiones del garabato escalado
         const scaledW = contentW * scale;
         const scaledH = contentH * scale;
 
-        // 3. CENTRAR: Calcular posición X e Y para que quede al medio
         const posX = (ANCHO_FINAL - scaledW) / 2;
         const posY = (ALTO_FINAL - scaledH) / 2;
 
-        // 4. DIBUJAR: Crear el canvas final estandarizado
         const finalCanvas = document.createElement('canvas');
         finalCanvas.width = ANCHO_FINAL;
         finalCanvas.height = ALTO_FINAL;
         const fCtx = finalCanvas.getContext('2d');
 
-        // (Opcional) Si quieres ver el fondo blanco en el PDF, descomenta esto:
-        // fCtx.fillStyle = "white";
-        // fCtx.fillRect(0,0, ANCHO_FINAL, ALTO_FINAL);
-
-        // Dibujamos el recorte original -> Escalado y Centrado en el nuevo canvas
         fCtx.drawImage(c,
-            minX, minY, contentW, contentH,  // Qué parte tomamos del original
-            posX, posY, scaledW, scaledH     // Dónde y de qué tamaño lo pegamos
+            minX, minY, contentW, contentH,
+            posX, posY, scaledW, scaledH
         );
 
         return finalCanvas;
@@ -162,9 +173,7 @@
             obtenerGPS();
             const userEmail = obtenerEmailLimpio();
 
-            // Validar admin
             try {
-                // SOLUCIÓN: Separador dinámico
                 const sepUsers = API_USERS.includes('?') ? '&' : '?';
                 const resUsers = await fetch(`${API_USERS}${sepUsers}action=get_all_users_with_roles&admin_email=${encodeURIComponent(userEmail)}`);
                 const dataUsers = await resUsers.json();
@@ -176,7 +185,6 @@
                 }
             } catch (e) { }
 
-            // 1. Obtener Pedido (SOLUCIÓN: Separador dinámico)
             const sepApi = API_URL.includes('?') ? '&' : '?';
             const res = await fetch(`${API_URL}${sepApi}action=get_order_by_token&token=${token}&wp_user=${encodeURIComponent(userEmail)}&t=${Date.now()}`);
             const data = await res.json();
@@ -186,7 +194,6 @@
                 document.getElementById('view-cliente').innerText = pedidoActual.cliente;
                 document.getElementById('view-id').innerText = pedidoActual.id_pedido;
 
-                // 2. BUSCAR EMAIL CLIENTE (SOLUCIÓN: Separador dinámico)
                 if (pedidoActual.id_interno_cliente) {
                     try {
                         const sepClient = CLIENT_API_URL.includes('?') ? '&' : '?';
@@ -212,14 +219,10 @@
         } catch (e) { console.error(e); }
     }
 
-    // --- FUNCIONES DE ACCIÓN SEPARADAS ---
-
-    // 1. ACCIÓN: Abrir cámara
     window.accionFotoDirecta = function () {
         document.getElementById('foto-input').click();
     };
 
-    // 2. ACCIÓN: Solo visual (NO navega a ninguna parte)
     window.fotoCapturadaUI = function () {
         const input = document.getElementById('foto-input');
         const btnFoto = document.getElementById('btn-solo-foto');
@@ -227,9 +230,8 @@
 
         if (input.files && input.files[0]) {
             btnFoto.classList.add('foto-ok');
-            btnFoto.style.backgroundColor = "#27ae60"; // Verde Exito
+            btnFoto.style.backgroundColor = "#27ae60";
 
-            // Actualizar texto del botón a "FOTO LISTA"
             if (txtFoto) {
                 txtFoto.innerText = "FOTO LISTA";
             } else {
@@ -238,7 +240,6 @@
         }
     };
 
-    // 3. ACCIÓN: Abrir modal de firma
     window.abrirFirmaYDatos = function () {
         document.getElementById('custom-modal').style.display = 'none';
         document.getElementById('firma-modal').style.display = 'flex';
@@ -248,9 +249,7 @@
         limpiarCanvasFirma();
     };
 
-    // 4. ACCIÓN: Validar GPS -> Luego abrir firma
     window.verificarUbicacion = async function () {
-        // Validar que la foto exista antes de dejar firmar
         const inputFoto = document.getElementById('foto-input');
         if (!inputFoto.files || !inputFoto.files[0]) {
             alert("⚠️ Primero debes tomar la foto de evidencia.");
@@ -261,7 +260,6 @@
         const btnFirma = document.getElementById('btn-solo-firma');
         let textoOriginal = "";
 
-        // Feedback visual
         if (btnFirma) {
             textoOriginal = btnFirma.innerHTML;
             btnFirma.disabled = true;
@@ -277,7 +275,6 @@
         const dLat = parseFloat(pedidoActual.lat_despacho);
         const dLng = parseFloat(pedidoActual.lng_despacho);
 
-        // Restaurar botón
         if (btnFirma) {
             btnFirma.disabled = false;
             btnFirma.innerHTML = textoOriginal;
@@ -295,7 +292,6 @@
             }
         }
 
-        // Si GPS OK, abrir firma
         abrirFirmaYDatos();
     };
 
@@ -306,10 +302,8 @@
         const card = document.getElementById('status-card');
         const inst = document.getElementById('main-instruction');
 
-        // --- NUEVO: REFERENCIA AL BOTÓN ---
         const btnMapaCard = document.getElementById('btn-card-mapa');
-        if (btnMapaCard) btnMapaCard.style.display = 'none'; // Ocultar por defecto
-        // ----------------------------------
+        if (btnMapaCard) btnMapaCard.style.display = 'none';
 
         const estado = normalizarTexto(estadoRaw);
         badge.innerText = estadoRaw;
@@ -334,11 +328,8 @@
             card.classList.add('status-despacho');
             inst.innerText = "Estás en ruta. 1) Toma la foto. 2) Verifica ubicación y entrega.";
 
-            // --- NUEVO: MOSTRAR BOTÓN MAPA ---
             if (btnMapaCard) btnMapaCard.style.display = 'flex';
-            // ---------------------------------
 
-            // MOSTRAR BOTONES DOBLES
             if (containerDespacho) {
                 btnMain.style.display = 'none';
                 containerDespacho.style.display = 'flex';
@@ -354,6 +345,7 @@
             if (containerDespacho) containerDespacho.style.display = 'none';
         }
     }
+
     function mostrarModalDistancia(dist, direccion, lat, lng) {
         const modal = document.getElementById('custom-modal');
         const content = modal.querySelector('.modal-content');
@@ -372,7 +364,6 @@
 
         btnConfirmar.innerText = "📍 ABRIR MAPA";
         btnConfirmar.style.background = "#e67e22";
-        // SOLUCIÓN: Corrección URL Google Maps
         btnConfirmar.onclick = () => window.location.href = `https://maps.google.com/?q=${lat},${lng}`;
 
         if (esAdminGlobal) {
@@ -398,14 +389,9 @@
 
     function ajustarCanvas() {
         const container = document.getElementById('canvas-container');
-
-        // Ajustamos al tamaño real del contenedor
         canvasFirma.width = container.clientWidth;
         canvasFirma.height = container.clientHeight;
-
-        // --- AQUÍ ADELGAZAMOS EL TRAZO ---
-        ctxFirma.lineWidth = 3; // Antes era 9. Un valor de 3 o 4 es ideal para bolígrafo.
-
+        ctxFirma.lineWidth = 3;
         ctxFirma.lineCap = 'round';
         ctxFirma.lineJoin = 'round';
         ctxFirma.strokeStyle = '#000000';
@@ -470,7 +456,6 @@
         if (previo) previo.remove();
         document.getElementById('modal-title').style.color = "#1a1a1a";
 
-        // Si es despacho, ya no usamos esta funcion normalmente.
         if (estado.includes('despacho')) {
             verificarUbicacion();
             return;
@@ -496,13 +481,6 @@
 
     window.cerrarModal = function () { document.getElementById('custom-modal').style.display = 'none'; };
 
-    window.procesarEnvio = async function (forzarAdmin = false) {
-        document.getElementById('btn-confirmar-modal').disabled = true;
-        document.getElementById('btn-confirmar-modal').innerText = "Procesando...";
-        enviarDatosGenerico(forzarAdmin);
-    };
-
-    // --- LÓGICA MODAL CORREO ---
     window.prepararEnvio = function () {
         tempNombre = document.getElementById('input-nombre-rx').value.trim();
         tempRut = document.getElementById('input-rut-rx').value.trim();
@@ -543,18 +521,17 @@
         const mail = document.getElementById('input-email-final').value.trim();
         if (!mail || !mail.includes('@')) { alert("Correo inválido"); return; }
 
-        document.getElementById('email-modal').style.display = 'none'; // Ocultar el modal de inmediato
+        document.getElementById('email-modal').style.display = 'none';
         enviarEntregaDefinitiva(mail);
     }
 
     window.finalizarSinCorreo = function () {
-        document.getElementById('email-modal').style.display = 'none'; // Ocultar el modal de inmediato
+        document.getElementById('email-modal').style.display = 'none';
         enviarEntregaDefinitiva("SKIP");
     }
 
     async function enviarDatosGenerico(forzarAdmin, extraData = null) {
         try {
-            // 🔥 1. LEVANTAR PANTALLA DE CARGA BLOQUEANTE 🔥
             Swal.fire({
                 title: 'Procesando entrega...',
                 html: 'Generando documento firmado y enviando correo.<br><b>Por favor, no cierres esta pantalla.</b>',
@@ -602,13 +579,13 @@
                     result = JSON.parse(jsonString);
                 } else { throw new Error("Invalido"); }
             } catch (e) {
-                Swal.close(); // Ocultar carga si falla
+                Swal.close();
                 console.error("Error parseando:", textResponse);
                 Swal.fire('Error', 'El servidor devolvió una respuesta inesperada.', 'error');
                 return;
             }
 
-            Swal.close(); // 🔥 2. OCULTAR PANTALLA DE CARGA AL TERMINAR 🔥
+            Swal.close();
 
             if (result.status === 'success') {
                 document.getElementById('custom-modal').style.display = 'none';
@@ -625,82 +602,11 @@
                 Swal.fire('Atención', result.message || "Error al procesar", 'warning');
             }
         } catch (e) {
-            Swal.close(); // Ocultar carga si falla la red
+            Swal.close();
             console.error("Error en envío:", e);
             Swal.fire('Error de Conexión', 'No se pudo conectar con el servidor. Revisa tu internet e intenta de nuevo.', 'error');
         }
     }
-
-    async function enviarDatosGenerico(forzarAdmin, extraData = null) {
-        try {
-            const coords = await obtenerGPS();
-            const estOriginal = normalizarTexto(pedidoActual.estado);
-            const fd = new FormData();
-
-            fd.append('qr_token', token);
-            fd.append('lat_gps', coords.lat || '');
-            fd.append('lng_gps', coords.lng || '');
-
-            if (forzarAdmin) fd.append('forzado_admin', '1');
-
-            if (extraData) {
-                fd.append('nombre_receptor', extraData.nombre);
-                fd.append('rut_receptor', extraData.rut);
-                fd.append('observaciones', extraData.obs);
-                fd.append('img_firma', extraData.firma, "firma.png");
-                if (extraData.email_envio) fd.append('email_envio', extraData.email_envio);
-
-                const foto = document.getElementById('foto-input').files[0];
-                if (foto) {
-                    const fotoBlob = await comprimirImagen(foto, 1200, 0.7);
-                    fd.append('foto', fotoBlob, "evidencia.jpg");
-                }
-            }
-
-            const res = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
-            const textResponse = await res.text();
-
-            let result;
-            try {
-                const jsonStart = textResponse.indexOf('{');
-                const jsonEnd = textResponse.lastIndexOf('}');
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    const jsonString = textResponse.substring(jsonStart, jsonEnd + 1);
-                    result = JSON.parse(jsonString);
-                } else { throw new Error("Invalido"); }
-            } catch (e) {
-                console.error("Error parseando:", textResponse);
-                alert("Error de respuesta del servidor.");
-                if (extraData) document.getElementById('btn-enviar-final').disabled = false;
-                return;
-            }
-
-            if (result.status === 'success') {
-                document.getElementById('custom-modal').style.display = 'none';
-                document.getElementById('firma-modal').style.display = 'none';
-                document.getElementById('email-modal').style.display = 'none';
-
-                if (estOriginal.includes('prepara')) {
-                    pedidoActual.estado = "En despacho";
-                    window.abrirGpsModal();
-                } else {
-                    window.finalizarExito();
-                }
-            } else {
-                alert(result.message || "Error al procesar");
-                if (extraData) {
-                    document.getElementById('btn-enviar-final').disabled = false;
-                    document.getElementById('btn-enviar-final').innerText = "✅ ENVIAR";
-                }
-            }
-        } catch (e) {
-            console.error("Error en envío:", e);
-            alert("Error de red.");
-            if (extraData) document.getElementById('btn-enviar-final').disabled = false;
-        }
-    }
-
-    // --- ESTAS FUNCIONES DEBEN ESTAR FUERA DE ENVIARDATOSGENERICO ---
 
     async function enviarEntregaDefinitiva(emailDestino) {
         enviarDatosGenerico(entregaForzada, {
@@ -711,17 +617,10 @@
             email_envio: emailDestino
         });
     }
-    // REEMPLAZAR TU FUNCIÓN comprimirImagen POR ESTA:
-    function comprimirImagen(archivo, maxWidth, calidad) {
-        // -----------------------------------------------------------
-        // 1. PEGA AQUÍ EL CÓDIGO BASE64 DE TU LOGO (Debe ser largo)
-        // Empieza por "data:image/png;base64,..."
-        // Si no tienes uno, usa una herramienta online para convertir tu PNG a Base64
-        const LOGO_BASE64 = "data:image/png;base64,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"; // <--- BORRA ESTO Y PEGA TU CÓDIGO REAL ENTRE LAS COMILLAS
-        // -----------------------------------------------------------
 
-        // AJUSTE: Más transparente (0.4 es muy sutil, 0.5 es medio)
-        const TRANSPARENCIA = 0.4;
+    function comprimirImagen(archivo, maxWidth, calidad) {
+        const LOGO_BASE64 = "data:image/png;base64,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";
+        const TRANSPARENCIA = 0.5; // Dejé esto en 0.5 para que sea una marca de agua suave, ajústalo de 0.1 a 1.0 si lo necesitas
 
         return new Promise(resolve => {
             const reader = new FileReader();
@@ -758,14 +657,13 @@
                         ctx.globalAlpha = TRANSPARENCIA;
 
                         // Cálculos de tamaño y posición
-                        const logoW = w * 0.30; // Logo al 30% del ancho
+                        const logoW = w * 0.30;
                         const logoH = (imgLogo.height / imgLogo.width) * logoW;
 
-                        // Fuente un poco más pequeña y discreta
                         const fontSize = Math.floor(w * 0.03);
-                        ctx.font = `${fontSize}px sans-serif`; // Quitamos 'bold' para que sea más fino
+                        ctx.font = `${fontSize}px sans-serif`;
 
-                        const espacio = fontSize; // Espacio entre logo y texto
+                        const espacio = fontSize;
                         const totalH = logoH + espacio + fontSize;
 
                         // Centro absoluto
@@ -775,41 +673,34 @@
                         // A. Dibujar Logo
                         ctx.drawImage(imgLogo, x - (logoW / 2), y, logoW, logoH);
 
-                        // B. Dibujar Texto (SOLO BLANCO, SIN BORDES)
+                        // B. Dibujar Texto
                         ctx.textAlign = "center";
                         ctx.textBaseline = "top";
-                        ctx.fillStyle = "#ffffff"; // Blanco puro
+                        ctx.fillStyle = "#ffffff";
 
-                        // Dibujar fecha debajo del logo
                         ctx.fillText(new Date().toLocaleString('es-CL'), x, y + logoH + espacio);
 
-                        ctx.restore(); // Restaurar para que no afecte nada más
+                        ctx.restore();
 
                         // Exportar
                         canvas.toBlob(b => resolve(b), 'image/jpeg', calidad);
                     };
 
                     imgLogo.onerror = () => {
-                        // Fallback si no hay logo
                         canvas.toBlob(b => resolve(b), 'image/jpeg', calidad);
                     };
                 };
             };
         });
     }
+
     window.verGuiaPdf = () => pedidoActual?.url_guia ? window.open(pedidoActual.url_guia, '_blank') : alert("Sin guía");
 
-    // REEMPLAZA TU FUNCIÓN cerrarGpsModal POR ESTA:
     window.cerrarGpsModal = () => {
         document.getElementById('gps-modal').style.display = 'none';
-
         const estado = normalizarTexto(pedidoActual.estado);
-
-        // Si el estado ya es "En despacho" (porque lo acabamos de cambiar),
-        // lo ideal es recargar la página para que el operario vea la nueva UI 
-        // con los botones de "Foto" y "Firma".
         if (estado.includes('despacho')) {
-            location.reload(); // Esto refresca la UI al nuevo estado "En ruta"
+            location.reload();
         }
     };
 
@@ -817,7 +708,6 @@
 
     window.irAMapa = (t) => {
         if (!pedidoActual || !pedidoActual.lat_despacho) { alert("Sin coordenadas"); return; }
-        // SOLUCIÓN: Corrección URLs mapas
         const url = t === 'google' ? `https://maps.google.com/?q=${pedidoActual.lat_despacho},${pedidoActual.lng_despacho}` :
             t === 'waze' ? `https://waze.com/ul?ll=${pedidoActual.lat_despacho},${pedidoActual.lng_despacho}&navigate=yes` :
                 `http://maps.apple.com/?q=${pedidoActual.lat_despacho},${pedidoActual.lng_despacho}`;

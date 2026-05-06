@@ -50,7 +50,11 @@ if ($action == 'update_order_items') {
     $productos_raw = $_POST['producto'] ?? ''; 
     $cantidades_raw = $_POST['cantidad'] ?? '';
     $precios_raw = $_POST['precios_venta'] ?? ''; 
-    $nueva_fecha_despacho = $_POST['fecha_despacho'] ?? ''; // <-- Recibimos la nueva fecha
+    $nueva_fecha_despacho = $_POST['fecha_despacho'] ?? '';
+    
+    // VARIABLES NUEVAS DE DESCUENTO
+    $pct_descuentos_raw = $_POST['pct_descuentos'] ?? '';
+    $precios_originales_raw = $_POST['precios_originales'] ?? '';
     
     $email_editor = $_POST['wp_user'] ?? '';
     $nombre_editor = $email_editor; 
@@ -81,7 +85,6 @@ if ($action == 'update_order_items') {
         echo json_encode(["status" => "error", "message" => "Pedido no encontrado"]); exit;
     }
 
-    // APLICAR LA NUEVA FECHA SI ES QUE LLEGÓ UNA
     if (!empty($nueva_fecha_despacho)) {
         $meta['fecha_despacho'] = $nueva_fecha_despacho;
     }
@@ -98,6 +101,8 @@ if ($action == 'update_order_items') {
         $lista_prod = explode(' | ', $productos_raw);
         $lista_cant = explode(' | ', $cantidades_raw);
         $lista_precios = explode(' | ', $precios_raw);
+        $lista_pct_descuentos = explode(' | ', $pct_descuentos_raw);
+        $lista_precios_originales = explode(' | ', $precios_originales_raw);
         
         $insertados = 0;
 
@@ -105,6 +110,10 @@ if ($action == 'update_order_items') {
             $id_p_item = trim($id_p_item);
             $cant_p = isset($lista_cant[$index]) ? floatval(trim($lista_cant[$index])) : 0;
             $precio_frontend = isset($lista_precios[$index]) ? floatval(trim($lista_precios[$index])) : 0;
+            
+            // CAPTURAMOS LOS NUEVOS VALORES DEL ARRAY DE DESCUENTOS
+            $porcentaje_desc = isset($lista_pct_descuentos[$index]) ? floatval(trim($lista_pct_descuentos[$index])) : 0;
+            $precio_original = isset($lista_precios_originales[$index]) ? floatval(trim($lista_precios_originales[$index])) : $precio_frontend;
             
             if (empty($id_p_item) || $cant_p <= 0) continue;
 
@@ -118,23 +127,29 @@ if ($action == 'update_order_items') {
                     $p_u = $precio_frontend;
                 } else {
                     $p_u = ($info['precio_actual'] > 0) ? $info['precio_actual'] : ($info['precio_por_kilo'] ?? 0);
+                    $precio_original = $p_u; // Respaldo por si viene en 0 desde JS
                 }
+                
                 $c_u = ($info['costo_actual'] > 0) ? $info['costo_actual'] : ($info['costo_por_kilo'] ?? 0);
                 
+                // Recálculos de montos totales y monto de descuento monetario
                 $tot_v = $cant_p * $p_u; 
                 $tot_c = $cant_p * $c_u; 
                 $margen = $tot_v - $tot_c;
+                $monto_desc = ($precio_original - $p_u) * $cant_p;
 
+                // Consulta expandida con precio_original, porcentaje_descuento, y monto_descuento
                 $sql = "INSERT INTO pedidos_activos 
-                        (id_pedido, creado_por, cliente, id_interno_cliente, producto, cantidad, precio_unitario, costo_unitario, total_venta, total_costo, margen, fecha_despacho, observaciones, qr_token, id_producto, url_factura, url_guia, numero_factura, estado, ultima_edicion, editado_por) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        (id_pedido, creado_por, cliente, id_interno_cliente, producto, cantidad, precio_unitario, costo_unitario, total_venta, total_costo, margen, fecha_despacho, observaciones, qr_token, id_producto, url_factura, url_guia, numero_factura, estado, ultima_edicion, editado_por, precio_original, porcentaje_descuento, monto_descuento) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $stmt_ins = $conn->prepare($sql);
                 if (!$stmt_ins) {
                     throw new Exception("Error preparando INSERT: " . $conn->error);
                 }
 
-                $stmt_ins->bind_param("sssssddddddssssssssss", 
+                // Sumamos 3 "d" (doubles) al bind_param para las nuevas variables
+                $stmt_ins->bind_param("sssssddddddssssssssssddd", 
                     $id_pedido, 
                     $meta['creado_por'], 
                     $meta['cliente'],
@@ -146,7 +161,7 @@ if ($action == 'update_order_items') {
                     $tot_v, 
                     $tot_c, 
                     $margen, 
-                    $meta['fecha_despacho'], // ¡Aquí se guarda la nueva fecha automáticamente!
+                    $meta['fecha_despacho'], 
                     $meta['observaciones'], 
                     $meta['qr_token'], 
                     $id_p_item,
@@ -155,7 +170,10 @@ if ($action == 'update_order_items') {
                     $meta['numero_factura'],
                     $meta['estado'],
                     $fecha_edicion,
-                    $nombre_editor
+                    $nombre_editor,
+                    $precio_original,
+                    $porcentaje_desc,
+                    $monto_desc
                 );
                 
                 if (!$stmt_ins->execute()) {
