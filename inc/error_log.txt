@@ -71,3 +71,8 @@
 2026-05-06 21:25:23 | Cat: notify_pedido_editado | ID: 120 | Resp: 200 | URL: http://tabolango-app.local/
 2026-05-06 21:26:09 | Cat: notify_pedido_editado | ID: 117 | Resp: 200 | URL: http://tabolango-app.local/
 2026-05-06 21:26:09 | Cat: notify_pedido_editado | ID: 120 | Resp: 200 | URL: http://tabolango-app.local/
+2026-05-06 22:32:12 | Cat: notify_cambio_estado | ID: 117 | Resp: 200 | URL: http://tabolango-app.local/
+2026-05-06 22:32:13 | Cat: notify_cambio_estado | ID: 120 | Resp: 200 | URL: http://tabolango-app.local/
+2026-05-06 22:32:21 | Cat: notify_cambio_estado | ID: 117 | Resp: 200 | URL: http://tabolango-app.local/
+2026-05-06 22:32:21 | Cat: notify_cambio_estado | ID: 120 | Resp: 404 | URL: http://tabolango-app.local/
+2026-05-06 22:32:22 | Cat: notify_cambio_estado | ID: 121 | Resp: 200 | URL: http://tabolango-app.local/
