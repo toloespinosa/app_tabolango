@@ -32,7 +32,7 @@ if (!is_dir($path_destino_xml)) {
 }
 
 // --- 3. CONEXIÓN AL SERVIDOR IMAP ---
-echo "Iniciando conexión con Google IMAP...<br>";
+echo "Iniciando conexión con Google IMAP...";
 if (ob_get_level() > 0) ob_flush(); flush(); // Fuerza al Live Link a mostrar el texto ya mismo
 
 $inbox = @imap_open($imap_host, $imap_user, $imap_pass);
@@ -51,7 +51,7 @@ echo "Buscando correos sin leer (UNSEEN)...<br>";
 if (ob_get_level() > 0) ob_flush(); flush();
 
 // Buscamos todos los correos NO LEÍDOS (UNSEEN) dentro de esa etiqueta específica
-$emails = imap_search($inbox, 'UNSEEN');
+$emails = imap_search($inbox, 'ALL');
 $insertados = 0;
 
 if ($emails) {

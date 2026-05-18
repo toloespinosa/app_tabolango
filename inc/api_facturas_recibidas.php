@@ -22,7 +22,7 @@ try {
     
     $data = [];
 
-    // Determinamos la ruta física de los XMLs para leerlos al vuelo
+    // Determinamos la ruta física de los XMLs
     $host_actual = $_SERVER['HTTP_HOST'] ?? '';
     $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
     if (strpos($host_actual, 'erp.tabolango.cl') !== false || strpos($ruta_raiz, 'erp.tabolango.cl') !== false) {
@@ -36,16 +36,19 @@ try {
         $row['total_fmt'] = "$" . number_format($row['total_bruto'], 0, ',', '.');
         $row['fecha_fmt'] = date("d/m/Y", strtotime($row['fecha_emision']));
         
-        // 🔥 MAGIA HOVER: Leemos los ítems del XML con la misma limpieza extrema 🔥
-        $items_str = "Sin detalle en el XML";
+        $items_str = "Esperando archivo XML...";
+        $archivo_fisico_existe = false;
+
+        // Verificamos si la URL existe físicamente en el disco duro
         if (!empty($row['url_xml'])) {
             $filename = basename(parse_url($row['url_xml'], PHP_URL_PATH));
             $ruta_fisica = $base_xml_dir . $filename;
             
             if (file_exists($ruta_fisica)) {
+                $archivo_fisico_existe = true;
                 $xml_raw = file_get_contents($ruta_fisica);
                 
-                // Limpieza a prueba de balas
+                // Limpieza a prueba de balas para leer los ítems
                 $xml_clean = preg_replace('/xmlns="[^"]+"/', '', $xml_raw);
                 $xml_clean = preg_replace('/xmlns:[a-zA-Z0-9_]+="[^"]+"/', '', $xml_clean);
                 $xml_clean = preg_replace('/<[a-zA-Z0-9_]+:([a-zA-Z0-9_]+)/', '<$1', $xml_clean);
@@ -55,29 +58,33 @@ try {
                 $xml_obj = @simplexml_load_string($xml_clean);
                 
                 if ($xml_obj) {
-                    // Usamos búsqueda global de detalles
                     $detalles = $xml_obj->xpath('//Detalle');
                     $nombres = [];
                     
                     if (!empty($detalles)) {
                         foreach($detalles as $det) {
-                            // Cortamos la cantidad a 2 decimales para que no se vea feo (ej: 3080.0000 -> 3080)
                             $qty = number_format((float)($det->QtyItem ?? 1), 0, ',', '.');
                             $nmb = (string)($det->NmbItem ?? 'Item');
                             $nombres[] = "• " . $qty . "x " . $nmb;
                         }
                         
-                        // &#10; es el código HTML para hacer un salto de línea dentro del atributo "title"
                         $items_str = implode("&#10;", array_slice($nombres, 0, 8));
                         if (count($nombres) > 8) {
                             $items_str .= "&#10;... y " . (count($nombres) - 8) . " más";
                         }
+                    } else {
+                        $items_str = "Sin detalle en el XML";
                     }
                 }
             }
         }
         
-        // Evitamos que las comillas dobles rompan el HTML del botón
+        // 🔥 MAGIA: Si el archivo aún no llega desde el correo, anulamos la URL en la respuesta
+        if (!$archivo_fisico_existe) {
+            $row['url_xml'] = null; // Esto hace que el JS salte la alerta "Documento no disponible"
+            $items_str = "⚠️ Falta sincronizar XML desde el correo.";
+        }
+        
         $row['items_hover'] = htmlspecialchars($items_str, ENT_QUOTES);
         $data[] = $row;
     }
