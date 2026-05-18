@@ -4,7 +4,9 @@ const URL_API_RECIBIDAS = window.getApi('api_facturas_recibidas.php');
 const URL_API_NC = window.getApi('procesar_nota_credito.php');
 const URL_API_FOLIOS = window.getApi('api_gestion_folios.php');
 const URL_API_ACUSE = window.getApi('api_acuse_recibo.php');
+const URL_API_COMBUSTIBLE = window.getApi('api_combustible.php');
 
+let timerCombustible = null;
 let offsetActual = 0;
 let offsetRecibidas = 0;
 const LIMITE_POR_PAGINA = 25;
@@ -33,9 +35,11 @@ function switchTab(tab) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
 
     const btns = document.querySelectorAll('.tab-link');
+    // Asegúrate de que los índices coincidan con el orden de tus botones en el HTML
     if (tab === 'emitidas') { btns[0].classList.add('active'); cargarFacturasPremium(true); }
     if (tab === 'folios') { btns[1].classList.add('active'); cargarFolios(); }
     if (tab === 'recibidas') { btns[2].classList.add('active'); cargarFacturasRecibidas(true); }
+    if (tab === 'combustible') { btns[3].classList.add('active'); cargarDashboardCombustible(); }
 
     document.getElementById(`view-${tab}`).classList.remove('hidden');
 }
@@ -567,5 +571,194 @@ async function descargarXmlDesdeCorreo() {
     } catch (e) {
         console.error(e);
         Swal.fire('Error', 'No se pudo conectar con el lector.', 'error');
+    }
+}
+// ==========================================
+// MÓDULO 6: COMBUSTIBLE (BILLETERA COPEC)
+// ==========================================
+
+function filtrarCombustibleDebounce() {
+    clearTimeout(timerCombustible);
+    timerCombustible = setTimeout(() => cargarDashboardCombustible(), 500);
+}
+
+async function cargarDashboardCombustible() {
+    const tbody = document.getElementById('tbody-combustible');
+    const filtro = document.getElementById('filtro-patente').value.trim();
+    const mes = document.getElementById('filtro-mes').value;
+    const anio = document.getElementById('filtro-anio').value;
+
+    tbody.innerHTML = `<tr><td colspan="6" class="loading-row"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando movimientos...</td></tr>`;
+
+    try {
+        const sep = URL_API_COMBUSTIBLE.includes('?') ? '&' : '?';
+        const res = await fetch(`${URL_API_COMBUSTIBLE}${sep}action=dashboard&filtro=${encodeURIComponent(filtro)}&mes=${mes}&anio=${anio}`);
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            document.getElementById('wallet-saldo').innerText = data.billetera.saldo_fmt;
+            document.getElementById('wallet-abonos').innerText = data.billetera.abonos_fmt;
+            document.getElementById('wallet-consumos').innerText = data.billetera.consumos_fmt;
+
+            document.getElementById('wallet-saldo').style.color = data.billetera.saldo < 0 ? '#ef4444' : '#0056b3';
+
+            tbody.innerHTML = '';
+            if (data.historial.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#94a3b8;">No hay registros de movimientos en este período.</td></tr>`;
+                return;
+            }
+
+            data.historial.forEach(item => {
+                if (item.tipo_mov === 'ABONO') {
+                    // Filas de ABONO (Verdes)
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr style="background-color: #f0fdf4;">
+                            <td><span class="folio-tag" style="background:#bbf7d0; color:#166534;">#VALE-${item.numero}</span></td>
+                            <td><b>${item.fecha_fmt}</b></td>
+                            <td><span style="font-weight:bold; color:#15803d;"><i class="fa-solid fa-circle-arrow-up"></i> ABONO</span></td>
+                            <td>
+                                <span style="display:block; font-weight:600; color:#166534;">${item.nota}</span>
+                                <span style="font-size:11px; color:#64748b;">Registrado por: ${item.identificador}</span>
+                            </td>
+                            <td><span class="amount-txt" style="color:#166534; font-weight:bold;">+ ${item.monto_fmt}</span></td>
+                            <td>
+                                <button class="p-btn" style="background:#166534; color:white; border:none; padding:5px 8px; border-radius:4px;" onclick="verValeInterno(${item.numero}, '${item.fecha_fmt}', '${item.identificador}', ${item.monto}, '${item.nota}')" title="Ver Vale de Abono">
+                                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                } else {
+                    // Filas de CONSUMO (Tradicionales)
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td><span class="folio-tag" style="background:#f1f5f9; color:#334155;">#${item.numero}</span></td>
+                            <td><b>${item.fecha_fmt}</b></td>
+                            <td><span style="font-weight:bold; background:#e2e8f0; padding:4px 8px; border-radius:4px; letter-spacing:1px; color:#334155;"><i class="fa-solid fa-truck"></i> ${item.identificador}</span></td>
+                            <td>
+                                <span style="display:block;">${item.detalle}</span>
+                                <span style="font-size:11px; color:#64748b;">${item.litros_fmt} a $${item.precio_litro}/L</span>
+                            </td>
+                            <td><span class="amount-txt" style="color:#ef4444;">- ${item.monto_fmt}</span></td>
+                            <td>
+                                <button class="p-btn p-btn-view" onclick="verDocumento('${item.documento}', ${item.numero})" title="Ver Guía Original">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                }
+            });
+        }
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error cargando datos.</td></tr>`;
+    }
+}
+
+// Ventana Emergente con Formato de Vale Imprimible
+function verValeInterno(numero, fecha, usuario, monto, nota) {
+    const montoFmt = "$" + Number(monto).toLocaleString('es-CL');
+
+    Swal.fire({
+        title: '',
+        html: `
+            <div id="print-vale-area" style="font-family: 'Courier New', Courier, monospace; text-align: left; padding: 10px; color: #000; background: #fff; border: 1px dashed #000; width: 290px; margin: 0 auto; font-size: 13px;">
+                <div style="text-align: center; font-weight: bold; margin-bottom: 5px;">TABOLANGO SpA</div>
+                <div style="text-align: center; font-size: 11px; margin-bottom: 15px;">COMPROBANTE INTERNO DE ABONO</div>
+                <hr style="border-top: 1px dashed #000; margin: 5px 0;">
+                <div><b>COMPROBANTE:</b> #VALE-${numero}</div>
+                <div><b>FECHA:</b> ${fecha}</div>
+                <div><b>RESPONSABLE:</b> ${usuario}</div>
+                <hr style="border-top: 1px dashed #000; margin: 5px 0;">
+                <div style="margin: 10px 0;">
+                    <b>DETALLE:</b><br>
+                    ${nota}
+                </div>
+                <hr style="border-top: 1px dashed #000; margin: 5px 0;">
+                <div style="text-align: right; font-size: 16px; font-weight: bold; margin-top: 10px;">
+                    TOTAL: ${montoFmt}
+                </div>
+                <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #555;">
+                    --- PROCESADO EN ERP TABOLANGO ---
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#166534',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '<i class="fa-solid fa-print"></i> Imprimir Vale',
+        cancelButtonText: 'Cerrar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Clonar contenido e imprimir solo el vale en limpio
+            const contenidoHtml = document.getElementById('print-vale-area').innerHTML;
+            const ventanaImpresion = window.open('', '_blank', 'width=400,height=600');
+            ventanaImpresion.document.write(`
+                <html>
+                <head><title>Imprimir Vale</title></head>
+                <body onload="window.print(); window.close();" style="margin:20px;">
+                    <div style="font-family: 'Courier New', monospace; font-size:14px; width:300px;">
+                        ${contenidoHtml}
+                    </div>
+                </body>
+                </html>
+            `);
+            ventanaImpresion.document.close();
+        }
+    });
+}
+
+async function registrarAbonoCombustible() {
+    const { value: formValues } = await Swal.fire({
+        title: 'Registrar Abono Copec',
+        html: `
+            <div style="text-align:left; font-size:14px;">
+                <label style="font-weight:bold; color:#334155;">Monto a transferir ($):</label>
+                <input id="swal-monto" type="number" class="swal2-input" placeholder="Ej: 500000" style="margin-top:5px; margin-bottom:15px; width:90%;">
+                
+                <label style="font-weight:bold; color:#334155;">Referencia / Nota:</label>
+                <input id="swal-nota" type="text" class="swal2-input" placeholder="Ej: Transferencia Banco Estado" style="margin-top:5px; width:90%;">
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#0f4b29',
+        confirmButtonText: 'Guardar Abono',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const monto = document.getElementById('swal-monto').value;
+            const nota = document.getElementById('swal-nota').value;
+            if (!monto || monto <= 0) {
+                Swal.showValidationMessage('Debes ingresar un monto válido.');
+            }
+            return { monto: monto, nota: nota };
+        }
+    });
+
+    if (formValues) {
+        Swal.fire({ title: 'Guardando...', didOpen: () => Swal.showLoading() });
+        try {
+            let emailActual = (window.APP_USER && window.APP_USER.email) ? window.APP_USER.email : 'Administrador';
+            const sep = URL_API_COMBUSTIBLE.includes('?') ? '&' : '?';
+            const res = await fetch(`${URL_API_COMBUSTIBLE}${sep}action=abonar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    monto: formValues.monto,
+                    nota: formValues.nota,
+                    usuario: emailActual
+                })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                Swal.fire('¡Abono Registrado!', 'El saldo de la billetera se ha actualizado.', 'success');
+                cargarDashboardCombustible(); // Recarga la tabla y tarjetas al instante
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'No se pudo registrar el abono.', 'error');
+        }
     }
 }

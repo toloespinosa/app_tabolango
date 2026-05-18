@@ -1,20 +1,18 @@
 <?php
 // cron_read_imap_recibidas.php
-// Script blindado para escanear etiquetas de Gmail desde entornos locales LocalWP (Live Links).
+// Escáner Híbrido: Procesa Facturas (DTE 33) y Guías de Combustible Copec (DTE 52).
 
-require_once 'auth.php'; // Hereda la conexión $conn
+require_once 'auth.php'; 
 
-// Desactivar límite de tiempo para evitar caídas en cargas masivas iniciales
 set_time_limit(300);
-ini_set('default_socket_timeout', 15); // Si se congela, se cae a los 15 segundos en vez de quedarse infinito
+ini_set('default_socket_timeout', 15); 
 
-// --- 1. CONFIGURACIÓN DEL BUZÓN IMAP (Con banderas de compatibilidad local) ---
-// 🔥 CAMBIO CLAVE: Agregamos banderas para evadir bloqueos SSL locales y apuntamos a la etiqueta con el prefijo de Gmail
-$imap_host = '{imap.gmail.com:993/imap/ssl/novalidate-cert}DTE_Recibidos';
+// --- 1. CONFIGURACIÓN DEL BUZÓN IMAP ---
+$imap_host = '{imap.gmail.com:993/imap/ssl/novalidate-cert}DTE_Recibidos'; 
 $imap_user = 'jandres@tabolango.cl'; 
 $imap_pass = 'ufyt omfq qnof rgfi';      
 
-// --- 2. DETERMINAR RUTAS ABSOLUTAS CENTRALIZADAS ---
+// --- 2. DETERMINAR RUTAS ---
 $host_actual = $_SERVER['HTTP_HOST'] ?? '';
 $ruta_raiz = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
 if (strpos($host_actual, 'erp.tabolango.cl') !== false || strpos($ruta_raiz, 'erp.tabolango.cl') !== false) {
@@ -31,34 +29,20 @@ if (!is_dir($path_destino_xml)) {
     mkdir($path_destino_xml, 0755, true);
 }
 
-// --- 3. CONEXIÓN AL SERVIDOR IMAP ---
-echo "Iniciando conexión con Google IMAP...";
-if (ob_get_level() > 0) ob_flush(); flush(); // Fuerza al Live Link a mostrar el texto ya mismo
-
+// --- 3. CONEXIÓN IMAP ---
 $inbox = @imap_open($imap_host, $imap_user, $imap_pass);
 
 if (!$inbox) {
-    echo "<span style='color:red;'>❌ Error de conexión IMAP:</span> " . imap_last_error() . "<br><br>";
-    echo "<b>Detalles técnicos acumulados:</b><pre>";
-    print_r(imap_errors());
-    print_r(imap_alerts());
-    echo "</pre>";
-    exit;
+    die("❌ Error de conexión IMAP: " . imap_last_error() . "\n");
 }
 
-echo "✅ Conectado exitosamente a la etiqueta DTE_Recibidos.<br>";
-echo "Buscando correos sin leer";
-if (ob_get_level() > 0) ob_flush(); flush();
-
-// Buscamos todos los correos NO LEÍDOS (UNSEEN) dentro de esa etiqueta específica
 $emails = imap_search($inbox, 'ALL');
-$insertados = 0;
+$insertados_fac = 0;
+$insertados_com = 0;
 
 if ($emails) {
-    echo "<b>Se encontraron " . count($emails) . " DTEs nuevos sin procesar.</b><br><br>";
-    if (ob_get_level() > 0) ob_flush(); flush();
-    
-    $stmt = $conn->prepare("
+    // Preparar Query para Facturas (DTE 33)
+    $stmt_facturas = $conn->prepare("
         INSERT INTO facturas_recibidas (folio, fecha_emision, proveedor, rut_proveedor, total_bruto, url_xml, estado_acuse) 
         VALUES (?, ?, ?, ?, ?, ?, 'PENDIENTE')
         ON DUPLICATE KEY UPDATE 
@@ -68,17 +52,24 @@ if ($emails) {
             url_xml = IFNULL(facturas_recibidas.url_xml, VALUES(url_xml))
     ");
 
+    // Preparar Query para Combustible (DTE 52 Copec)
+    $stmt_combustible = $conn->prepare("
+        INSERT INTO consumo_combustible (folio, fecha_emision, rut_proveedor, patente, tipo_combustible, litros, precio_litro, monto_total, url_xml) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            patente = VALUES(patente),
+            litros = VALUES(litros),
+            monto_total = VALUES(monto_total),
+            url_xml = VALUES(url_xml)
+    ");
+
     foreach ($emails as $email_number) {
         $structure = imap_fetchstructure($inbox, $email_number);
         $attachments = [];
 
         if (isset($structure->parts) && count($structure->parts)) {
             for ($i = 0; $i < count($structure->parts); $i++) {
-                $attachments[$i] = [
-                    'is_attachment' => false,
-                    'filename' => '',
-                    'attachment' => ''
-                ];
+                $attachments[$i] = ['is_attachment' => false, 'filename' => '', 'attachment' => ''];
 
                 if ($structure->parts[$i]->ifdparameters) {
                     foreach ($structure->parts[$i]->dparameters as $object) {
@@ -88,7 +79,6 @@ if ($emails) {
                         }
                     }
                 }
-
                 if ($structure->parts[$i]->ifparameters) {
                     foreach ($structure->parts[$i]->parameters as $object) {
                         if (strtolower($object->attribute) == 'name') {
@@ -97,7 +87,6 @@ if ($emails) {
                         }
                     }
                 }
-
                 if ($attachments[$i]['is_attachment']) {
                     $attachments[$i]['attachment'] = imap_fetchbody($inbox, $email_number, $i+1);
                     if ($structure->parts[$i]->encoding == 3) { 
@@ -116,8 +105,6 @@ if ($emails) {
             if (pathinfo($filename, PATHINFO_EXTENSION) !== 'xml') continue;
 
             $xml_raw = $attachment['attachment'];
-
-            // Limpieza radical de Namespaces
             $xml_clean = preg_replace('/xmlns="[^"]+"/', '', $xml_raw);
             $xml_clean = preg_replace('/xmlns:[a-zA-Z0-9_]+="[^"]+"/', '', $xml_clean);
             $xml_clean = preg_replace('/<[a-zA-Z0-9_]+:([a-zA-Z0-9_]+)/', '<$1', $xml_clean);
@@ -131,45 +118,76 @@ if ($emails) {
             if (empty($nodos_encabezado)) continue;
 
             $encabezado = $nodos_encabezado[0];
-            
             $tipo_dte = (int)($encabezado->IdDoc->TipoDTE ?? 0);
-            if ($tipo_dte !== 33) continue; 
-
-            $folio = (int)($encabezado->IdDoc->Folio ?? 0);
-            $fecha_raw = (string)($encabezado->IdDoc->FchEmis ?? date('Y-m-d'));
-            $fecha_emision = substr($fecha_raw, 0, 10);
-            
-            $proveedor = (string)($encabezado->Emisor->RznSoc ?? 'Proveedor Desconocido');
             $rut_proveedor = (string)($encabezado->Emisor->RUTEmisor ?? '');
-            $total_bruto = (int)($encabezado->Totales->MntTotal ?? 0);
-
-            if ($folio === 0 || empty($rut_proveedor)) continue;
-
-            $nombre_archivo_xml = "REC_33_" . str_replace(['.', '-'], '', $rut_proveedor) . "_" . $folio . ".xml";
-            $ruta_fisica_xml = $path_destino_xml . $nombre_archivo_xml;
             
-            file_put_contents($ruta_fisica_xml, $xml_raw);
+            // ----------------------------------------------------
+            // RUTA A: FACTURAS NORMALES (DTE 33)
+            // ----------------------------------------------------
+            if ($tipo_dte === 33) {
+                $folio = (int)($encabezado->IdDoc->Folio ?? 0);
+                $fecha_raw = (string)($encabezado->IdDoc->FchEmis ?? date('Y-m-d'));
+                $fecha_emision = substr($fecha_raw, 0, 10);
+                $proveedor = (string)($encabezado->Emisor->RznSoc ?? 'Proveedor Desconocido');
+                $total_bruto = (int)($encabezado->Totales->MntTotal ?? 0);
 
-            $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
-            $DOMINIO_LIMPIO = $protocolo . "://" . $host_actual . "/wp-content/themes/Tabolango/";
-            $url_xml_web = $DOMINIO_LIMPIO . "uploads/" . $carpeta_xml_recibidos . $nombre_archivo_xml;
+                if ($folio === 0 || empty($rut_proveedor)) continue;
 
-            $stmt->bind_param("isssis", $folio, $fecha_emision, $proveedor, $rut_proveedor, $total_bruto, $url_xml_web);
-            $stmt->execute();
+                $nombre_archivo_xml = "REC_33_" . str_replace(['.', '-'], '', $rut_proveedor) . "_" . $folio . ".xml";
+                $ruta_fisica_xml = $path_destino_xml . $nombre_archivo_xml;
+                file_put_contents($ruta_fisica_xml, $xml_raw);
 
-            echo "📥 Procesada con éxito: Factura #$folio - $proveedor<br>";
-            if (ob_get_level() > 0) ob_flush(); flush();
-            $insertados++;
+                $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+                $DOMINIO_LIMPIO = $protocolo . "://" . $host_actual . "/wp-content/themes/Tabolango/";
+                $url_xml_web = $DOMINIO_LIMPIO . "uploads/" . $carpeta_xml_recibidos . $nombre_archivo_xml;
+
+                $stmt_facturas->bind_param("isssis", $folio, $fecha_emision, $proveedor, $rut_proveedor, $total_bruto, $url_xml_web);
+                $stmt_facturas->execute();
+                $insertados_fac++;
+            }
+            // ----------------------------------------------------
+            // RUTA B: GUÍAS DE COMBUSTIBLE COPEC (DTE 52)
+            // ----------------------------------------------------
+            elseif ($tipo_dte === 52 && strpos($rut_proveedor, '99520000') !== false) {
+                $folio = (int)($encabezado->IdDoc->Folio ?? 0);
+                $fecha_raw = (string)($encabezado->IdDoc->FchEmis ?? date('Y-m-d'));
+                $fecha_emision = substr($fecha_raw, 0, 10);
+                $patente = (string)($encabezado->Transporte->Patente ?? 'S/P');
+                $monto_total = (int)($encabezado->Totales->MntTotal ?? 0);
+
+                // Buscamos el detalle de los litros
+                $detalles = $xml_obj->xpath('//Detalle');
+                $tipo_combustible = 'Combustible';
+                $litros = 0;
+                $precio_litro = 0;
+
+                if (!empty($detalles)) {
+                    $det = $detalles[0]; // Copec manda 1 item por guía
+                    $tipo_combustible = (string)($det->NmbItem ?? 'Combustible');
+                    $litros = (float)($det->QtyItem ?? 0);
+                    $precio_litro = (float)($det->PrcItem ?? 0);
+                }
+
+                if ($folio === 0) continue;
+
+                // Guardar XML físico
+                $nombre_archivo_xml = "REC_52_" . str_replace(['.', '-'], '', $rut_proveedor) . "_" . $folio . ".xml";
+                $ruta_fisica_xml = $path_destino_xml . $nombre_archivo_xml;
+                file_put_contents($ruta_fisica_xml, $xml_raw);
+
+                $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+                $DOMINIO_LIMPIO = $protocolo . "://" . $host_actual . "/wp-content/themes/Tabolango/";
+                $url_xml_web = $DOMINIO_LIMPIO . "uploads/" . $carpeta_xml_recibidos . $nombre_archivo_xml;
+
+                $stmt_combustible->bind_param("issssddis", $folio, $fecha_emision, $rut_proveedor, $patente, $tipo_combustible, $litros, $precio_litro, $monto_total, $url_xml_web);
+                $stmt_combustible->execute();
+                $insertados_com++;
+            }
         }
-
-        // Marcamos el correo como leído
         imap_setflag_full($inbox, $email_number, "\\Seen");
     }
-    
-    echo "<br><b>[EXITO] Lector de Etiqueta finalizado. Documentos enlazados: $insertados</b>\n";
-} else {
-    echo "<br><b>[AVISO] No hay facturas nuevas sin leer en la etiqueta DTE_Recibidos.</b>\n";
 }
 
 imap_close($inbox);
+echo "[EXITO] Lector finalizado. Facturas leídas: $insertados_fac | Guías de Combustible leídas: $insertados_com\n";
 ?>
