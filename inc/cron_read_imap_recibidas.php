@@ -10,7 +10,7 @@ ini_set('default_socket_timeout', 15); // Si se congela, se cae a los 15 segundo
 
 // --- 1. CONFIGURACIÓN DEL BUZÓN IMAP (Con banderas de compatibilidad local) ---
 // 🔥 CAMBIO CLAVE: Agregamos banderas para evadir bloqueos SSL locales y apuntamos a la etiqueta con el prefijo de Gmail
-$imap_host = '{imap.gmail.com:993/imap/ssl/novalidate-cert}INBOX/DTE_Recibidos'; 
+$imap_host = '{imap.gmail.com:993/imap/ssl/novalidate-cert}DTE_Recibidos';
 $imap_user = 'jandres@tabolango.cl'; 
 $imap_pass = 'ufyt omfq qnof rgfi';      
 
@@ -47,7 +47,7 @@ if (!$inbox) {
 }
 
 echo "✅ Conectado exitosamente a la etiqueta DTE_Recibidos.<br>";
-echo "Buscando correos sin leer (UNSEEN)...<br>";
+echo "Buscando correos sin leer";
 if (ob_get_level() > 0) ob_flush(); flush();
 
 // Buscamos todos los correos NO LEÍDOS (UNSEEN) dentro de esa etiqueta específica
