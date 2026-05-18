@@ -1,37 +1,30 @@
-// 🔥 FORZAMOS RUTAS A PRODUCCIÓN PARA VER DATOS REALES EN LOCAL 🔥
-const URL_API_LISTA = window.getApi('api_lista_facturas.php');
+// 🔥 RUTAS DEFINITIVAS 🔥
+const URL_API_EMITIDAS = window.getApi('api_lista_facturas.php');
+const URL_API_RECIBIDAS = window.getApi('api_facturas_recibidas.php');
 const URL_API_NC = window.getApi('procesar_nota_credito.php');
 const URL_API_FOLIOS = window.getApi('api_gestion_folios.php');
+const URL_API_ACUSE = window.getApi('api_acuse_recibo.php');
 
-// 🔥 VARIABLES PARA SCROLL INFINITO 🔥
 let offsetActual = 0;
+let offsetRecibidas = 0;
 const LIMITE_POR_PAGINA = 25;
 let cargandoMas = false;
 let hayMasFacturas = true;
+let cargandoMasRecibidas = false;
+let hayMasRecibidas = true;
+let timerFiltro = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 🔥 BLINDAJE DE FRONT-END (Zero Trust) 🔥
     const rolActual = window.APP_USER ? parseInt(window.APP_USER.rol_id) : 0;
     const esAdminGlobal = (window.APP_USER && window.APP_USER.isAdmin);
-
-    // Solo permitimos roles 1 (Admin), 2 (Editor), y 4 (Vendedor)
     const puedeVerPagina = (rolActual === 1 || rolActual === 2 || rolActual === 4 || esAdminGlobal);
 
     if (!puedeVerPagina) {
-        document.getElementById('premium-dashboard').innerHTML = `
-            <div style="text-align:center; padding:100px 20px; color:#334155; animation: fadeIn 0.5s;">
-                <i class="fa-solid fa-shield-halved" style="font-size: 60px; margin-bottom: 20px; color: #e74c3c;"></i>
-                <h2 style="font-size: 28px; font-weight: 900; color: #0f4b29; margin-bottom: 10px;">Acceso Restringido</h2>
-                <p style="font-size: 16px; color: #64748b;">No tienes los permisos necesarios para acceder al Panel de Facturación.</p>
-                <button onclick="window.location.href='/'" style="margin-top: 30px; background: #0F4B29; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; cursor: pointer;">VOLVER AL INICIO</button>
-            </div>`;
-        return; // Bloqueamos la ejecución del resto del script
+        document.getElementById('premium-dashboard').innerHTML = `<div style="text-align:center; padding:100px 20px;"><h2>Acceso Restringido</h2></div>`;
+        return;
     }
 
-    // Si tiene permiso, cargamos el primer lote de facturas
-    cargarFacturasPremium(true);
-
-    // Inicializamos el evento para detectar el final de la tabla
+    cargarFacturasPremium(true); // Carga inicial de emitidas
     initInfiniteScroll();
 });
 
@@ -40,34 +33,37 @@ function switchTab(tab) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
 
     const btns = document.querySelectorAll('.tab-link');
-    if (tab === 'emitidas') btns[0].classList.add('active');
-    if (tab === 'folios') btns[1].classList.add('active');
-    if (tab === 'recibidas') btns[2].classList.add('active');
+    if (tab === 'emitidas') { btns[0].classList.add('active'); cargarFacturasPremium(true); }
+    if (tab === 'folios') { btns[1].classList.add('active'); cargarFolios(); }
+    if (tab === 'recibidas') { btns[2].classList.add('active'); cargarFacturasRecibidas(true); }
 
     document.getElementById(`view-${tab}`).classList.remove('hidden');
-
-    if (tab === 'folios') cargarFolios();
 }
 
-// --- LÓGICA DE SCROLL INFINITO ---
 function initInfiniteScroll() {
-    const contenedorTabla = document.querySelector('.table-responsive');
+    const contEmitidas = document.querySelector('#view-emitidas .table-responsive');
+    const contRecibidas = document.querySelector('#scroll-recibidas');
 
-    if (contenedorTabla) {
-        contenedorTabla.addEventListener('scroll', () => {
-            const isTabEmitidasVisible = !document.getElementById('view-emitidas').classList.contains('hidden');
+    if (contEmitidas) {
+        contEmitidas.addEventListener('scroll', () => {
+            if (!document.getElementById('view-emitidas').classList.contains('hidden') && !cargandoMas && hayMasFacturas) {
+                if (contEmitidas.scrollTop + contEmitidas.clientHeight >= contEmitidas.scrollHeight - 50) cargarFacturasPremium(false);
+            }
+        });
+    }
 
-            if (isTabEmitidasVisible && !cargandoMas && hayMasFacturas) {
-                // Detecta si estamos a 50px del fondo del contenedor
-                if (contenedorTabla.scrollTop + contenedorTabla.clientHeight >= contenedorTabla.scrollHeight - 50) {
-                    cargarFacturasPremium(false); // false = es una carga secundaria (paginación)
-                }
+    if (contRecibidas) {
+        contRecibidas.addEventListener('scroll', () => {
+            if (!document.getElementById('view-recibidas').classList.contains('hidden') && !cargandoMasRecibidas && hayMasRecibidas) {
+                if (contRecibidas.scrollTop + contRecibidas.clientHeight >= contRecibidas.scrollHeight - 50) cargarFacturasRecibidas(false);
             }
         });
     }
 }
 
-// --- EMITIDAS (CON PAGINACIÓN) ---
+// ==========================================
+// MÓDULO 1: FACTURAS EMITIDAS
+// ==========================================
 async function cargarFacturasPremium(esCargaInicial = true) {
     const tbody = document.getElementById('tbody-facturas');
 
@@ -76,7 +72,6 @@ async function cargarFacturasPremium(esCargaInicial = true) {
         hayMasFacturas = true;
         tbody.innerHTML = `<tr><td colspan="5" class="loading-row"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando documentos...</td></tr>`;
     } else {
-        // Fila temporal mientras carga más datos
         tbody.insertAdjacentHTML('beforeend', `<tr id="tr-loader-scroll"><td colspan="5" class="loading-row" style="text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando historial...</td></tr>`);
     }
 
@@ -84,15 +79,13 @@ async function cargarFacturasPremium(esCargaInicial = true) {
 
     try {
         let emailActual = (window.APP_USER && window.APP_USER.email) ? window.APP_USER.email : '';
-        const sep = URL_API_LISTA.includes('?') ? '&' : '?';
+        const sep = URL_API_EMITIDAS.includes('?') ? '&' : '?';
 
-        // Petición con límite y offset
-        const res = await fetch(`${URL_API_LISTA}${sep}action=emitidas&wp_user=${encodeURIComponent(emailActual)}&limit=${LIMITE_POR_PAGINA}&offset=${offsetActual}`);
+        const res = await fetch(`${URL_API_EMITIDAS}${sep}wp_user=${encodeURIComponent(emailActual)}&limit=${LIMITE_POR_PAGINA}&offset=${offsetActual}`);
 
         if (!res.ok) throw new Error("Error servidor");
         const data = await res.json();
 
-        // Limpiar loaders
         if (esCargaInicial) tbody.innerHTML = '';
         const loaderScroll = document.getElementById('tr-loader-scroll');
         if (loaderScroll) loaderScroll.remove();
@@ -108,11 +101,7 @@ async function cargarFacturasPremium(esCargaInicial = true) {
             return;
         }
 
-        // Si la BD devolvió menos de las 25 que le pedimos, ya no hay más para la próxima
-        if (data.length < LIMITE_POR_PAGINA) {
-            hayMasFacturas = false;
-        }
-
+        if (data.length < LIMITE_POR_PAGINA) hayMasFacturas = false;
         offsetActual += LIMITE_POR_PAGINA;
 
         const hoy = new Date();
@@ -128,13 +117,9 @@ async function cargarFacturasPremium(esCargaInicial = true) {
                 if (partesFecha.length === 3) {
                     const fechaDesp = new Date(partesFecha[0], partesFecha[1] - 1, partesFecha[2]);
                     fechaDesp.setHours(0, 0, 0, 0);
-
                     const diffTime = hoy.getTime() - fechaDesp.getTime();
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (diffDays >= 5 && !isAdmin) {
-                        puedeAnular = false;
-                    }
+                    if (diffDays >= 5 && !isAdmin) puedeAnular = false;
                 }
             }
 
@@ -147,7 +132,6 @@ async function cargarFacturasPremium(esCargaInicial = true) {
                 accionHTML = `<button class="p-btn p-btn-danger" onclick="confirmarAnulacion('${item.id_pedido}', ${item.numero_factura}, '${item.cliente.replace(/'/g, "")}')"><i class="fa-solid fa-file-circle-xmark"></i> Anular</button>`;
             }
 
-            // Agregamos las filas al final de la tabla
             tbody.insertAdjacentHTML('beforeend', `
                 <tr>
                     <td><span class="folio-tag">#${item.numero_factura}</span></td>
@@ -167,7 +151,155 @@ async function cargarFacturasPremium(esCargaInicial = true) {
     }
 }
 
-// --- FOLIOS ---
+// ==========================================
+// MÓDULO 2: FACTURAS RECIBIDAS (CORREGIDO)
+// ==========================================
+
+function filtrarRecibidasDebounce() {
+    clearTimeout(timerFiltro);
+    timerFiltro = setTimeout(() => {
+        cargarFacturasRecibidas(true);
+    }, 500);
+}
+
+async function cargarFacturasRecibidas(esCargaInicial = true) {
+    const tbody = document.getElementById('tbody-recibidas');
+    const filtro = document.getElementById('filtro-proveedor').value.trim();
+
+    if (esCargaInicial) {
+        offsetRecibidas = 0;
+        hayMasRecibidas = true;
+        tbody.innerHTML = `<tr><td colspan="5" class="loading-row"><i class="fa-solid fa-circle-notch fa-spin"></i> Consultando documentos recibidos...</td></tr>`;
+    } else {
+        tbody.insertAdjacentHTML('beforeend', `<tr id="tr-loader-recibidas"><td colspan="5" class="loading-row" style="text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando historial...</td></tr>`);
+    }
+
+    cargandoMasRecibidas = true;
+
+    try {
+        let emailActual = (window.APP_USER && window.APP_USER.email) ? window.APP_USER.email : '';
+        const sep = URL_API_RECIBIDAS.includes('?') ? '&' : '?';
+
+        const res = await fetch(`${URL_API_RECIBIDAS}${sep}filtro=${encodeURIComponent(filtro)}&wp_user=${encodeURIComponent(emailActual)}&limit=${LIMITE_POR_PAGINA}&offset=${offsetRecibidas}`);
+
+        if (!res.ok) throw new Error("Error servidor");
+        const data = await res.json();
+
+        if (esCargaInicial) tbody.innerHTML = '';
+        const loaderScroll = document.getElementById('tr-loader-recibidas');
+        if (loaderScroll) loaderScroll.remove();
+
+        if (!Array.isArray(data) || data.length === 0) {
+            hayMasRecibidas = false;
+            if (esCargaInicial) {
+                tbody.innerHTML = `<tr><td colspan="5" class="empty-state"><p>No se encontraron facturas recibidas.</p></td></tr>`;
+            } else {
+                tbody.insertAdjacentHTML('beforeend', `<tr><td colspan="5" style="text-align:center; color:#94a3b8; font-size:12px; padding:15px;">No hay más documentos.</td></tr>`);
+            }
+            cargandoMasRecibidas = false;
+            return;
+        }
+
+        if (data.length < LIMITE_POR_PAGINA) hayMasRecibidas = false;
+        offsetRecibidas += LIMITE_POR_PAGINA;
+
+        data.forEach(item => {
+            let accionHTML = '';
+            if (item.estado_acuse === 'ACEPTADA') {
+                accionHTML = `<span style="color:#22c55e; font-size:11px; font-weight:bold; background:#dcfce7; padding:6px 10px; border-radius:6px;"><i class="fa-solid fa-check-double"></i> Aceptada</span>`;
+            } else if (item.estado_acuse === 'RECHAZADA') {
+                accionHTML = `<span style="color:#ef4444; font-size:11px; font-weight:bold; background:#fee2e2; padding:6px 10px; border-radius:6px;"><i class="fa-solid fa-xmark"></i> Rechazada</span>`;
+            } else {
+                // 🔥 ENVIAMOS EL RUT AL SII EN VEZ DEL ID INTERNO
+                accionHTML = `<button class="p-btn" style="background:#0056b3; color:white; border:none; padding:6px 12px; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="confirmarAceptacion('${item.rut_proveedor}', '${item.folio}', '${item.proveedor}')"><i class="fa-solid fa-check"></i> Aceptar</button>`;
+            }
+
+            tbody.insertAdjacentHTML('beforeend', `
+                <tr>
+                    <td><span class="folio-tag" style="background:#f1f5f9; color:#334155;">#${item.folio}</span></td>
+                    <td><b>${item.fecha_fmt}</b></td>
+                    <td>
+                        <span class="client-name">${item.proveedor}</span>
+                        <span style="font-size:11px; color:#94a3b8;">RUT: ${item.rut_proveedor}</span>
+                    </td>
+                    <td><span class="amount-txt">${item.total_fmt}</span></td>
+                    <td>
+                        <div class="actions-group" style="display:flex; gap:8px; align-items:center;">
+                            <button class="p-btn p-btn-view" onclick="verDocumento('${item.url_xml}', ${item.folio})" title="${item.items_hover}">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                            ${accionHTML}
+                        </div>
+                    </td>
+                </tr>`);
+        });
+    } catch (e) {
+        const loaderScroll = document.getElementById('tr-loader-recibidas');
+        if (loaderScroll) loaderScroll.remove();
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Error cargando datos de recibidas.</td></tr>`;
+        console.error(e);
+    } finally {
+        cargandoMasRecibidas = false;
+    }
+}
+
+// Acuse de Recibo en SII
+async function confirmarAceptacion(rutProveedor, folio, proveedor) {
+    const result = await Swal.fire({
+        title: `Procesar Factura #${folio}`,
+        html: `¿Qué acción deseas realizar con la factura de <b>${proveedor}</b>?<br><br><span style="font-size:12px; color:#e74c3c;">Esta acción es irreversible ante el SII y el proveedor.</span>`,
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonColor: '#0056b3',
+        denyButtonColor: '#dc3545',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: '<i class="fa-solid fa-check-double"></i> Aceptar (Acuse Recibo)',
+        denyButtonText: '<i class="fa-solid fa-xmark"></i> Rechazar (Reclamo)',
+        cancelButtonText: 'Cancelar',
+        customClass: window.swalConfig ? window.swalConfig.customClass : {}
+    });
+
+    if (result.isConfirmed || result.isDenied) {
+        const accionSII = result.isConfirmed ? 'ERM' : 'RCD';
+        const textoCarga = result.isConfirmed ? 'Enviando Acuse de Recibo...' : 'Enviando Rechazo al SII...';
+
+        Swal.fire({ title: textoCarga, didOpen: () => Swal.showLoading(), allowOutsideClick: false });
+
+        try {
+            const res = await fetch(URL_API_ACUSE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    folio: folio,
+                    rut_proveedor: rutProveedor,
+                    accion: accionSII
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: result.isConfirmed ? '¡Aceptada!' : '¡Rechazada!',
+                    text: data.message,
+                    customClass: window.swalConfig ? window.swalConfig.customClass : {}
+                }).then(() => {
+                    cargarFacturasRecibidas(true);
+                });
+            } else {
+                Swal.fire('Error del SII', data.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'No se pudo comunicar con el servidor.', 'error');
+        }
+    }
+}
+
+// ==========================================
+// MÓDULO 3: ADMINISTRACIÓN DE FOLIOS
+// ==========================================
 async function cargarFolios() {
     const grid = document.getElementById('folios-grid');
     grid.innerHTML = '<div class="loading-row"><i class="fa-solid fa-circle-notch fa-spin"></i> Consultando estado...</div>';
@@ -258,10 +390,36 @@ async function solicitarCAF(tipo) {
     }
 }
 
-// --- UTILIDADES ---
+// ==========================================
+// MÓDULO 4: UTILIDADES Y ANULACIONES
+// ==========================================
 function verDocumento(url, folio) {
-    if (!url || url === 'null') { Swal.fire('Aviso', 'Documento no generado', 'info'); return; }
-    Swal.fire({ html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;"></iframe>`, width: '850px', showConfirmButton: false, showCloseButton: true });
+    if (!url || url === 'null' || url === '#') {
+        Swal.fire('Aviso', 'Documento no generado o no disponible.', 'info');
+        return;
+    }
+
+    if (url.toLowerCase().endsWith('.xml')) {
+        const baseRenderUrl = window.getApi('render_xml_recibido.php');
+        const separador = baseRenderUrl.includes('?') ? '&' : '?';
+        const iframeUrl = `${baseRenderUrl}${separador}xml_url=${encodeURIComponent(url)}`;
+
+        Swal.fire({
+            title: `Factura de Compra #${folio}`,
+            html: `<iframe src="${iframeUrl}" style="width:100%; height:75vh; border:none; border-radius:8px;"></iframe>`,
+            width: '850px',
+            showConfirmButton: false,
+            showCloseButton: true
+        });
+        return;
+    }
+
+    Swal.fire({
+        html: `<iframe src="${url}" style="width:100%; height:75vh; border:none;"></iframe>`,
+        width: '850px',
+        showConfirmButton: false,
+        showCloseButton: true
+    });
 }
 
 async function confirmarAnulacion(id, folio, cliente) {
@@ -304,23 +462,14 @@ async function confirmarAnulacion(id, folio, cliente) {
         montoNetoManual = monto;
     }
 
-    Swal.fire({
-        title: 'Procesando al SII...',
-        didOpen: () => Swal.showLoading(),
-        allowOutsideClick: false
-    });
+    Swal.fire({ title: 'Procesando al SII...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
 
     try {
         let emailActual = (window.APP_USER && window.APP_USER.email) ? window.APP_USER.email : '';
         const res = await fetch(URL_API_NC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id_pedido: id,
-                tipo_nc: tipoAnulacion,
-                monto_neto_parcial: montoNetoManual,
-                wp_user: emailActual
-            })
+            body: JSON.stringify({ id_pedido: id, tipo_nc: tipoAnulacion, monto_neto_parcial: montoNetoManual, wp_user: emailActual })
         });
 
         const d = await res.json();
@@ -333,7 +482,6 @@ async function confirmarAnulacion(id, folio, cliente) {
                 confirmButtonColor: '#0f4b29'
             }).then(() => {
                 if (d.url_pdf) window.open(d.url_pdf, '_blank');
-                // Al anular, recargamos la tabla desde cero para refrescar el estado
                 cargarFacturasPremium(true);
             });
         } else {
@@ -341,5 +489,83 @@ async function confirmarAnulacion(id, folio, cliente) {
         }
     } catch (e) {
         Swal.fire('Error', 'Fallo de conexión: ' + e.message, 'error');
+    }
+}
+
+// ==========================================
+// MÓDULO 5: SINCRONIZADORES
+// ==========================================
+async function forzarSincronizacionRecibidas() {
+    const result = await Swal.fire({
+        title: 'Sincronizar con el SII',
+        html: `Esta acción consumirá <b>1 consulta</b> de tu plan mensual de SimpleAPI.<br><br>¿Deseas continuar?`,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#0F4B29',
+        cancelButtonColor: '#e74c3c',
+        confirmButtonText: 'Sí, sincronizar',
+        cancelButtonText: 'Cancelar',
+        customClass: window.swalConfig.customClass
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({
+            title: 'Conectando con SimpleAPI...',
+            html: 'Esto puede demorar hasta 60 segundos.<br>Por favor, no cierres esta ventana.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            const cronUrl = wpData.themeUrl + '/inc/cron_sync_recibidas.php';
+            const res = await fetch(cronUrl);
+            const textResponse = await res.text();
+
+            if (textResponse.includes('[EXITO]')) {
+                const match = textResponse.match(/Nuevas: (\d+) \| Actualizadas.*? (\d+)/);
+                const nuevas = match ? match[1] : 'varias';
+
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Sincronización Completada',
+                    text: `Se procesaron correctamente los datos. Se encontraron ${nuevas} facturas nuevas.`,
+                    customClass: window.swalConfig.customClass
+                });
+                cargarFacturasRecibidas(true);
+            } else {
+                Swal.fire('Advertencia', 'El proceso terminó, pero revisa la consola para ver los detalles del SII.', 'warning');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Hubo un fallo al intentar conectar con el script de sincronización.', 'error');
+        }
+    }
+}
+
+// Nuevo Sincronizador de Correos / Archivos Locales
+async function descargarXmlDesdeCorreo() {
+    Swal.fire({
+        title: 'Procesando XMLs...',
+        html: 'Extrayendo facturas. Por favor espera...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // NOTA: Para producción cambiar a 'cron_read_imap_recibidas.php'
+        const cronUrl = wpData.themeUrl + '/inc/scan_local_xml.php';
+        const res = await fetch(cronUrl);
+        const textResponse = await res.text();
+
+        if (textResponse.includes('[EXITO]')) {
+            Swal.fire('¡Éxito!', 'Los archivos XML se han descargado e indexado correctamente en el ERP.', 'success');
+            cargarFacturasRecibidas(true);
+        } else {
+            console.error(textResponse);
+            Swal.fire('Aviso', 'El proceso terminó. Revisa la consola para más detalles.', 'warning');
+        }
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'No se pudo conectar con el lector.', 'error');
     }
 }

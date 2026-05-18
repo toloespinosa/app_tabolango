@@ -64,10 +64,37 @@ get_header();
         </div>
 
         <div id="view-recibidas" class="view-section hidden">
-            <div class="empty-state">
-                <div class="icon-bg"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                <h3>Próximamente</h3>
-                <p>El módulo de facturas de compra estará disponible pronto.</p>
+            
+            <div style="padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+    
+    <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+        <i class="fa-solid fa-magnifying-glass" style="color: #94a3b8; font-size: 16px;"></i>
+        <input type="text" id="filtro-proveedor" placeholder="Buscar por Nombre o RUT de Proveedor..." 
+               style="flex: 1; border: none !important; background: transparent !important; box-shadow: none !important; font-size: 15px; font-weight: 600; outline: none; color: #334155;"
+               onkeyup="filtrarRecibidasDebounce()">
+    </div>
+
+    <button class="p-btn" style="background: #0F4B29; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; white-space: nowrap;" 
+            onclick="forzarSincronizacionRecibidas()">
+        <i class="fa-solid fa-rotate"></i> Sincronizar SII
+    </button>
+</div>
+
+            <div class="table-responsive" id="scroll-recibidas" style="max-height: 600px; overflow-y: auto;">
+                <table class="premium-table">
+                    <thead>
+                        <tr>
+                            <th width="10%">FOLIO</th>
+                            <th width="15%">FECHA</th>
+                            <th width="35%">PROVEEDOR</th>
+                            <th width="15%">TOTAL</th>
+                            <th width="25%" style="text-align: right;">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-recibidas">
+                        <tr><td colspan="5" class="loading-row"><i class="fa-solid fa-circle-notch fa-spin"></i> Inicializando módulo...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
