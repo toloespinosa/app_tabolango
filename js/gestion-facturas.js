@@ -707,6 +707,50 @@ function verValeInterno(numero, fecha, usuario, monto, nota) {
         }
     });
 }
+async function sincronizarCorreosCopec() {
+    Swal.fire({
+        title: 'Conectando con Gmail...',
+        html: 'Buscando nuevas guías de despacho y facturas.<br>Por favor, no cierres esta ventana.',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // Apuntamos al script real de lectura IMAP
+        const cronUrl = wpData.themeUrl + '/inc/cron_read_imap_recibidas.php';
+        const res = await fetch(cronUrl);
+        const textResponse = await res.text();
+
+        // Si el PHP devuelve nuestra bandera de [EXITO]
+        if (textResponse.includes('[EXITO]')) {
+            let mensajeExito = 'Sincronización completada correctamente.';
+
+            // Intentamos extraer cuántas guías se leyeron usando expresiones regulares desde la respuesta de PHP
+            const matchGuias = textResponse.match(/Guías de Combustible leídas: (\d+)/);
+            const matchFacturas = textResponse.match(/Facturas leídas: (\d+)/);
+
+            if (matchGuias && matchFacturas) {
+                mensajeExito = `Proceso finalizado.<br>• Guías Copec nuevas: <b>${matchGuias[1]}</b><br>• Facturas nuevas: <b>${matchFacturas[1]}</b>`;
+            }
+
+            await Swal.fire({
+                icon: 'success',
+                title: '¡Correos Sincronizados!',
+                html: mensajeExito,
+                confirmButtonColor: '#ea580c'
+            });
+
+            // Recargamos la cartola para ver los movimientos reflejados de inmediato
+            cargarDashboardCombustible();
+        } else {
+            console.error(textResponse);
+            Swal.fire('Aviso', 'El proceso terminó, pero la respuesta del servidor no fue la esperada. Revisa la consola.', 'warning');
+        }
+    } catch (e) {
+        console.error(e);
+        Swal.fire('Error', 'No se pudo establecer conexión con el lector de correos.', 'error');
+    }
+}
 
 async function registrarAbonoCombustible() {
     const { value: formValues } = await Swal.fire({

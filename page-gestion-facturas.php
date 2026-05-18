@@ -131,7 +131,7 @@ get_header();
                            onkeyup="filtrarCombustibleDebounce()">
                 </div>
 
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <select id="filtro-mes" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; color: #475569; outline: none; cursor: pointer;" onchange="cargarDashboardCombustible()">
                         <option value="">Todos los Meses</option>
                         <option value="01" <?php echo ($mes_actual == '01') ? 'selected' : ''; ?>>Enero</option>
@@ -154,6 +154,10 @@ get_header();
                         <option value="2025" <?php echo ($anio_actual == '2025') ? 'selected' : ''; ?>>2025</option>
                         <option value="2026" <?php echo ($anio_actual == '2026') ? 'selected' : ''; ?>>2026</option>
                     </select>
+
+                    <button class="p-btn" style="background: #ea580c; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; white-space: nowrap;" onclick="sincronizarCorreosCopec()">
+                        <i class="fa-solid fa-envelope-open-text"></i> Sincronizar Cargas
+                    </button>
                 </div>
             </div>
 
