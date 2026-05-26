@@ -45,6 +45,20 @@ $nodos_ted = $xml->xpath('//TED');
 if (empty($nodos_encabezado)) die("No se encontró el Encabezado en este XML.");
 
 $encabezado = $nodos_encabezado[0];
+
+// 🔥 DETERMINAMOS EL TIPO DE DOCUMENTO DINÁMICAMENTE
+$tipo_dte = (int)($encabezado->IdDoc->TipoDTE ?? 33);
+$nombre_documento = 'FACTURA ELECTRÓNICA';
+
+switch ($tipo_dte) {
+    case 34: $nombre_documento = 'FACTURA EXENTA ELECTRÓNICA'; break;
+    case 52: $nombre_documento = 'GUÍA DE DESPACHO ELECTRÓNICA'; break;
+    case 56: $nombre_documento = 'NOTA DE DÉBITO ELECTRÓNICA'; break;
+    case 61: $nombre_documento = 'NOTA DE CRÉDITO ELECTRÓNICA'; break;
+    case 33: 
+    default: $nombre_documento = 'FACTURA ELECTRÓNICA'; break;
+}
+
 $folio = $encabezado->IdDoc->Folio ?? 'N/A';
 $fecha = isset($encabezado->IdDoc->FchEmis) ? date("d-m-Y", strtotime($encabezado->IdDoc->FchEmis)) : 'N/A';
 $rut_p = $encabezado->Emisor->RUTEmisor ?? 'N/A';
@@ -123,7 +137,7 @@ ob_start();
         </div>
         <div class="col-right">
             <div style="font-size:16px; margin-bottom:8px;">R.U.T.: <?php echo $rut_p; ?></div>
-            <div style="font-size:14px; margin-bottom:8px; background-color:#fff;">FACTURA ELECTRÓNICA</div>
+            <div style="font-size:14px; margin-bottom:8px; background-color:#fff;"><?php echo $nombre_documento; ?></div>
             <div style="font-size:16px; margin-bottom:8px;">N° <?php echo $folio; ?></div>
             <div style="font-size:11px; color:#CC0000;">S.I.I. - CHILE</div>
         </div>
@@ -234,7 +248,8 @@ if (isset($_GET['download']) && $_GET['download'] == '1') {
     $dompdf->setPaper('A4', 'portrait');
     $dompdf->render();
     
-    $nombre_pdf = "Factura_Compra_" . $rut_p . "_Folio_" . $folio . ".pdf";
+    // Cambiamos el nombre de descarga también para que sea dinámico
+    $nombre_pdf = "Documento_" . $rut_p . "_Folio_" . $folio . ".pdf";
     $dompdf->stream($nombre_pdf, ["Attachment" => true]);
     exit;
 }
