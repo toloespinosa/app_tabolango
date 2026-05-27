@@ -43,3 +43,35 @@ ALTER TABLE `app_movimientos_bancarios`
 ADD COLUMN `rut_remitente` varchar(20) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `descripcion`,
 ADD COLUMN `nombre_remitente` varchar(100) COLLATE utf8mb3_unicode_ci DEFAULT NULL AFTER `rut_remitente`;
 
+---------------- para modulo de combustible
+CREATE TABLE consumo_combustible (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    folio INT NOT NULL,
+    fecha_emision DATE NOT NULL,
+    rut_proveedor VARCHAR(15) DEFAULT '99520000-7',
+    patente VARCHAR(10),
+    tipo_combustible VARCHAR(50),
+    litros DECIMAL(10,3),
+    precio_litro DECIMAL(10,2),
+    monto_total INT,
+    url_xml VARCHAR(255),
+    UNIQUE KEY unique_guia (folio, rut_proveedor)
+);
+
+---------------- Cotizador de Precios (2026-05-27)
+-- No requiere cambios de esquema. Usa tablas existentes:
+--   `clientes`, `productos`, `productos_precios_categorias`, `categorias_clientes`.
+--
+-- La acción `add_client` del cotizador inserta clientes nuevos así
+-- (parametrizado en runtime desde inc/api_cotizacion.php).
+-- tipo_cliente=5 corresponde a "Minorista" en producción (default para
+-- clientes nuevos, igual que la página /clientes).
+--
+-- INSERT INTO clientes
+--     (cliente, responsable, rut_cliente, telefono, email, ciudad, tipo_cliente, activo)
+-- VALUES (?, ?, ?, ?, ?, ?, 5, 1);
+--
+-- Verificación recomendada en producción antes de usar el cotizador:
+-- SELECT id_categoria, nombre_categoria FROM categorias_clientes
+-- WHERE id_categoria = 5;
+-- (Debe devolver "Minorista" o la categoría que quieras como default.)

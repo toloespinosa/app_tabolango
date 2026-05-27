@@ -18,7 +18,8 @@ function toggleFacturacion() {
 async function cargarDirectorio() {
     const userEmail = obtenerEmailLimpio();
     try {
-        const response = await fetch(`https://tabolango.cl/detalle-cliente.php?action=list_clients&wp_user=${encodeURIComponent(userEmail)}`);
+        const apiBase = window.getApi ? window.getApi('detalle-cliente.php') : `https://tabolango.cl/detalle-cliente.php?wp_user=${encodeURIComponent(userEmail)}`;
+        const response = await fetch(apiBase + '&action=list_clients');
         const data = await response.json();
         todosLosClientes = data.clientes || [];
 
