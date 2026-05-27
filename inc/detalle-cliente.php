@@ -39,6 +39,14 @@ $inputJSON = json_decode(file_get_contents('php://input'), true);
 $id_interno = $_POST['id_interno'] ?? $inputJSON['id_interno'] ?? '';
 $action = $_POST['action'] ?? $inputJSON['action'] ?? $_GET['action'] ?? '';
 
+// Compatibilidad con variables de permisos usadas más abajo (auth.php expone
+// $rol_final y $email_auth; aquí las normalizamos a los nombres del archivo).
+$rol_id            = $rol_final ?? 0;
+$email_solicitante = $email_auth ?? '';
+// Quién ve montos de venta / ranking: Admin(1), Editor(2), Vendedor(4).
+// Conductor(3) y roles desconocidos NO ven dinero.
+$puede_ver_dinero  = in_array($rol_id, [1, 2, 4], true);
+
 // =================================================================================
 // BLOQUE DE LÓGICA
 // =================================================================================
