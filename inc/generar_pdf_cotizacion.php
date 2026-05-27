@@ -8,6 +8,7 @@ use Dompdf\Options;
 $cliente_id     = intval($_POST['cliente_id'] ?? 0);
 $productos_json = $_POST['productos'] ?? '[]';
 $notas          = htmlspecialchars(trim($_POST['notas'] ?? ''), ENT_QUOTES);
+$ocultar_total  = ($_POST['ocultar_total'] ?? '0') === '1';
 $productos_cot  = json_decode($productos_json, true) ?? [];
 
 if (empty($productos_cot)) {
@@ -223,7 +224,11 @@ $html = '<!DOCTYPE html>
     </tbody>
 </table>
 
-<table class="bottom-row" style="margin-top:16px;">
+' . ($ocultar_total
+    ? ($notas
+        ? '<div class="notas-box" style="margin-top:16px;"><b>Notas:</b><br>' . nl2br($notas) . '</div>'
+        : '')
+    : '<table class="bottom-row" style="margin-top:16px;">
     <tr>
         <td width="52%" style="padding-right:12px; vertical-align:top;">
             ' . ($notas ? '<div class="notas-box"><b>Notas:</b><br>' . nl2br($notas) . '</div>' : '') . '
@@ -247,7 +252,7 @@ $html = '<!DOCTYPE html>
             </div>
         </td>
     </tr>
-</table>
+</table>') . '
 
 <div class="conds">
     <strong>Condiciones comerciales:</strong>

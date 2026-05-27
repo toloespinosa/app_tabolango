@@ -115,6 +115,11 @@ get_header();
                 <span class="cot-total-lbl">TOTAL</span>
                 <span class="cot-total-val" id="cot-grand-total">$0</span>
             </div>
+            <label class="cot-toggle-ocultar" title="Genera un PDF tipo lista, sin la caja de Neto/IVA/TOTAL">
+                <input type="checkbox" id="cot-ocultar-total">
+                <span class="cot-toggle-slider"></span>
+                <span class="cot-toggle-label"><i class="fa-solid fa-eye-slash"></i> Ocultar totales en PDF</span>
+            </label>
             <button id="btnGenerarCot" class="btn-generar-cot" disabled>
                 <i class="fa-solid fa-file-pdf"></i> Generar Cotización PDF
             </button>
@@ -124,10 +129,11 @@ get_header();
 </div>
 
 <form id="form-pdf-cot" method="POST" target="_blank" style="display:none;">
-    <input type="hidden" name="cliente_id" id="inp-cliente-id">
-    <input type="hidden" name="productos"  id="inp-productos">
-    <input type="hidden" name="notas"      id="inp-notas">
-    <input type="hidden" name="wp_user"    value="[user_email_js]">
+    <input type="hidden" name="cliente_id"    id="inp-cliente-id">
+    <input type="hidden" name="productos"     id="inp-productos">
+    <input type="hidden" name="notas"         id="inp-notas">
+    <input type="hidden" name="ocultar_total" id="inp-ocultar-total" value="0">
+    <input type="hidden" name="wp_user"       value="[user_email_js]">
 </form>
 
 <?php get_footer(); ?>

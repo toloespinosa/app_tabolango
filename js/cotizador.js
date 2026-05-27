@@ -271,9 +271,10 @@
 
         const form = document.getElementById('form-pdf-cot');
         form.action = window.getApi('generar_pdf_cotizacion.php');
-        document.getElementById('inp-cliente-id').value = document.getElementById('cot-cliente').value || 0;
-        document.getElementById('inp-productos').value  = JSON.stringify(productos);
-        document.getElementById('inp-notas').value      = document.getElementById('cot-notas').value || '';
+        document.getElementById('inp-cliente-id').value    = document.getElementById('cot-cliente').value || 0;
+        document.getElementById('inp-productos').value     = JSON.stringify(productos);
+        document.getElementById('inp-notas').value         = document.getElementById('cot-notas').value || '';
+        document.getElementById('inp-ocultar-total').value = document.getElementById('cot-ocultar-total').checked ? '1' : '0';
         form.submit();
     });
 
