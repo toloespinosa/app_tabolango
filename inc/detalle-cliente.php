@@ -93,8 +93,9 @@ if ($action === 'list_clients') {
 
             FROM clientes c
             LEFT JOIN categorias_clientes cat ON c.tipo_cliente = cat.id_categoria
-            WHERE c.activo = 1 
             ORDER BY total_comprado DESC, c.cliente ASC";
+    /* Sin filtro WHERE c.activo: el JS de clientes.js filtra por activo
+       para soportar el toggle de 'Modo Oculto' (clientes inactivos). */
             
     $res = $conn->query($sql);
     $clients = []; 
