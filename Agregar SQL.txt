@@ -75,3 +75,24 @@ CREATE TABLE consumo_combustible (
 -- SELECT id_categoria, nombre_categoria FROM categorias_clientes
 -- WHERE id_categoria = 5;
 -- (Debe devolver "Minorista" o la categoría que quieras como default.)
+
+
+---------------- Fix color_diferenciador corruptos (2026-05-27)
+-- Bug: inc/guardar_producto.php tenía mal la cadena de tipos de bind_param
+-- ("sssdiddddisssii"): bindeaba color_diferenciador como double, así que
+-- "#0F4B29" se convertía a "0" al guardar el producto.
+--
+-- El código ya está corregido (ahora usa "sssdddddsisssii" / "sssdddddsisssi"),
+-- pero los productos guardados con el bug siguen con color "0" en la BD.
+-- Este UPDATE los restaura al color por defecto:
+
+UPDATE productos
+   SET color_diferenciador = '#0F4B29'
+ WHERE color_diferenciador = '0'
+    OR color_diferenciador IS NULL
+    OR color_diferenciador = '';
+
+-- Verificación opcional para ver cuáles se afectaron antes de correrlo:
+-- SELECT id_producto, producto, color_diferenciador
+--   FROM productos
+--  WHERE color_diferenciador IN ('0','') OR color_diferenciador IS NULL;

@@ -40,10 +40,14 @@ try {
             aplica_descuentos=? 
             WHERE id_producto=?");
         
-        $stmt->bind_param("sssdiddddisssii", 
-            $producto, $icono, $unidad, $kg_por_unidad, 
-            $precio_actual, $costo_actual, $precio_por_kilo, $costo_por_kilo, 
-            $color_diferenciador, $activo, $variedad, $calibre, $formato, 
+        // Tipos: s=string, d=double, i=int
+        // Orden: producto(s) icono(s) unidad(s) kg(d) precio(d) costo(d)
+        //        preciok(d) costok(d) color(s) activo(i) variedad(s)
+        //        calibre(s) formato(s) aplica(i) id(i)
+        $stmt->bind_param("sssdddddsisssii",
+            $producto, $icono, $unidad, $kg_por_unidad,
+            $precio_actual, $costo_actual, $precio_por_kilo, $costo_por_kilo,
+            $color_diferenciador, $activo, $variedad, $calibre, $formato,
             $aplica_descuentos, $id_producto
         );
         $stmt->execute();
@@ -70,7 +74,8 @@ try {
             (producto, icono, unidad, kg_por_unidad, precio_actual, costo_actual, precio_por_kilo, costo_por_kilo, color_diferenciador, activo, variedad, calibre, formato, aplica_descuentos) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        $stmt->bind_param("sssdiddddisssi", 
+        // Mismo orden y tipos que el UPDATE (sin el id final).
+        $stmt->bind_param("sssdddddsisssi",
             $producto, $icono, $unidad, $kg_por_unidad, $precio_actual, $costo_actual, $precio_por_kilo, $costo_por_kilo, $color_diferenciador, $activo, $variedad, $calibre, $formato, $aplica_descuentos);
         $stmt->execute();
     }
