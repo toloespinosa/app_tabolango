@@ -8,9 +8,9 @@ get_header();
 
 <div style="display:none;" id="session-email-bridge">[user_email_js]</div>
 
-<h4><i class="fa-solid fa-file-invoice-dollar"></i> Cotizador de Precios</h4>
-
 <div id="contenedor-cotizador" class="cotizador-panel">
+
+    <div class="cot-titulo">Cotizador de Precios</div>
 
     <div class="cot-config-row">
         <div class="cot-campo">

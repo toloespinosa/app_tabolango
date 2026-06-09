@@ -1,0 +1,427 @@
+/* ============================================================
+   PROVEEDORES / COTIZACIONES DE COMPRAS
+   ============================================================ */
+
+.prov-panel {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.09);
+    padding: 0;
+    overflow: hidden;
+    margin-bottom: 24px;
+    color: #333;
+}
+
+.prov-titulo {
+    padding: 18px 24px 14px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #1a1a1a;
+    letter-spacing: 0.2px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* Header con tabs + acciones */
+.prov-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.prov-tabs { display: flex; gap: 6px; }
+
+.prov-tab {
+    padding: 9px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 22px;
+    background: #fafafa;
+    color: #666;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.prov-tab:hover  { border-color: #6f4a1f; color: #6f4a1f; background: #fbf6ee; }
+.prov-tab.active { background: #6f4a1f; color: #fff; border-color: #6f4a1f; }
+
+.prov-acciones {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+#prov-buscar {
+    padding: 9px 13px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fafafa;
+    outline: none;
+    min-width: 220px;
+    transition: 0.2s;
+}
+#prov-buscar:focus { border-color: #6f4a1f; background: #fff; }
+
+.prov-btn-nuevo {
+    padding: 9px 16px;
+    background: #6f4a1f;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.18s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 2px 8px rgba(111,74,31,0.2);
+}
+.prov-btn-nuevo:hover { background: #553818; }
+
+/* Vista grid de proveedores */
+.prov-vista { padding: 20px 24px; }
+
+.prov-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+}
+
+.prov-loading {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+}
+
+.prov-card {
+    background: #fff;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: 0.18s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+}
+
+.prov-card:hover {
+    border-color: #6f4a1f;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+}
+
+.prov-card-titulo {
+    font-size: 14px;
+    font-weight: 800;
+    color: #1a1a1a;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.prov-card-meta {
+    font-size: 11px;
+    color: #888;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.prov-card-meta i { color: #6f4a1f; margin-right: 3px; }
+
+.prov-card-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed #eee;
+    font-size: 11px;
+}
+
+.prov-card-stat-num {
+    font-weight: 800;
+    color: #6f4a1f;
+    font-size: 14px;
+}
+
+.prov-card-stat-lbl {
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+/* Bloque "Mejor precio" dentro del card de producto */
+.prov-mejor-precio {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fbf6ee;
+    border: 1px solid #efe5d3;
+    border-radius: 10px;
+}
+
+.prov-mejor-precio-lbl {
+    font-size: 9px;
+    text-transform: uppercase;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.prov-mejor-precio-val {
+    font-size: 22px;
+    font-weight: 900;
+    color: #6f4a1f;
+    line-height: 1.1;
+    margin-top: 2px;
+}
+
+.prov-mejor-precio-val.vencido    { color: #c0392b; }
+.prov-mejor-precio-val.sin_precio { color: #aaa; font-size: 18px; }
+
+.prov-mejor-precio-prov {
+    font-size: 11px;
+    color: #666;
+    margin-top: 3px;
+    font-weight: 600;
+}
+
+/* Tabla vista por producto */
+.prov-tabla-wrap {
+    overflow-x: auto;
+    background: #fff;
+}
+
+.prov-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+}
+
+.prov-table th {
+    background: #f8f9fa;
+    color: #aaa;
+    padding: 11px 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #eee;
+    text-align: left;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+
+.prov-table th:first-child,
+.prov-table td:first-child { padding-left: 22px; }
+.prov-table th:last-child,
+.prov-table td:last-child  { padding-right: 22px; }
+
+.prov-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f4f4f4;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.prov-table tr:hover td { background: #fbf6ee; }
+
+.prov-prod-nombre {
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.prov-prod-variedad {
+    background: #fff3e0;
+    color: #e67e22;
+    border: 1px solid #ffe0b2;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: 5px;
+}
+
+.prov-precio { font-weight: 800; color: #6f4a1f; font-size: 14px; }
+
+/* Badge de estado de vigencia */
+.badge-vigencia {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.badge-vigencia.vigente   { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+.badge-vigencia.vence_hoy { background: #fff8e1; color: #b26a00; border: 1px solid #ffe082; }
+.badge-vigencia.vencido   { background: #ffebee; color: #b71c1c; border: 1px solid #ffcdd2; }
+.badge-vigencia.sin_precio { background: #f3f3f3; color: #888;    border: 1px solid #ddd; }
+
+.badge-validez {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #efebe2;
+    color: #6f4a1f;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Modal */
+.prov-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.prov-modal {
+    background: #fff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 580px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+
+.prov-modal-header {
+    padding: 16px 22px;
+    background: #6f4a1f;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.prov-modal-close {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.prov-modal-body {
+    padding: 20px 22px;
+    overflow-y: auto;
+}
+
+.prov-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.prov-campo { display: flex; flex-direction: column; gap: 5px; }
+
+.prov-campo label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.req { color: #e74c3c; }
+
+.prov-campo input,
+.prov-campo textarea,
+.prov-campo select {
+    padding: 9px 11px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    font-size: 13px;
+    outline: none;
+    font-family: inherit;
+    background: #fafafa;
+    transition: 0.2s;
+}
+
+.prov-campo input:focus,
+.prov-campo textarea:focus,
+.prov-campo select:focus { border-color: #6f4a1f; background: #fff; }
+
+.prov-campo input.nc-error { border-color: #e74c3c; background: #fff5f5; }
+
+.prov-modal-footer {
+    padding: 14px 22px;
+    background: #fafafa;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.prov-btn-cancelar {
+    padding: 9px 16px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #777;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.prov-btn-cancelar:hover { background: #f5f5f5; color: #333; }
+
+.prov-btn-guardar {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    background: #6f4a1f;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 8px rgba(111,74,31,0.25);
+}
+.prov-btn-guardar:hover:not(:disabled) { background: #553818; }
+.prov-btn-guardar:disabled { opacity: 0.7; cursor: not-allowed; }
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .prov-header { flex-direction: column; align-items: stretch; }
+    .prov-acciones { justify-content: stretch; }
+    #prov-buscar { flex: 1; min-width: 0; }
+    .prov-form-grid { grid-template-columns: 1fr; }
+    .prov-vista { padding: 16px; }
+}
+
+@media (max-width: 480px) {
+    #prov-buscar,
+    .prov-campo input,
+    .prov-campo textarea { font-size: 16px; } /* anti iOS zoom */
+}

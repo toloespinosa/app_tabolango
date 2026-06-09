@@ -82,6 +82,26 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
             </a>
             <?php endif; ?>
 
+            <?php if (in_array($rol_id, [1, 2, 4])) : // Admin, Editor y Vendedor ?>
+            <a href="<?php echo home_url('/cotizador'); ?>" class="action-card card-rojo">
+                <div class="icon-circle bg-rojo">🧾</div>
+                <div class="card-info">
+                    <h3>Cotizador</h3>
+                    <p>COTIZACIONES DE VENTA</p>
+                </div>
+            </a>
+            <?php endif; ?>
+
+            <?php if (in_array($rol_id, [1, 2, 4])) : // Admin, Editor y Vendedor ?>
+            <a href="<?php echo home_url('/proveedores'); ?>" class="action-card card-cafe">
+                <div class="icon-circle bg-cafe">🚚</div>
+                <div class="card-info">
+                    <h3>Proveedores</h3>
+                    <p>COTIZACIONES DE COMPRA</p>
+                </div>
+            </a>
+            <?php endif; ?>
+
         </div>
     </div>
     

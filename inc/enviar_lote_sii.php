@@ -42,9 +42,29 @@ try {
     $NUMERO_RESOLUCION_SII = 80; 
     $FECHA_RESOLUCION_SII  = "2014-08-22"; 
 
-    $path_certificado = __DIR__ . "/uploads/certificados/certificado.pfx"; 
+    // Ruta del certificado — mismo patrón que procesar_facturacion.php / api_gestion_folios.php.
+    // El certificado vive en /home/tabolang/public_html/uploads/certificados/ en producción,
+    // pero el subdominio erp.tabolango.cl apunta a una carpeta distinta, así que hay que
+    // reemplazar "erp.tabolango.cl" por "public_html" en DOCUMENT_ROOT.
+    $host_actual = $_SERVER['HTTP_HOST'] ?? '';
+    $ruta_raiz   = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/');
+    if (strpos($host_actual, 'erp.tabolango.cl') !== false
+        || strpos($ruta_raiz, 'erp.tabolango.cl') !== false) {
+        $ruta_public = str_replace('erp.tabolango.cl', 'public_html', $ruta_raiz);
+    } else {
+        $ruta_public = $ruta_raiz;
+    }
+    // Fallback para ejecución vía CLI/cron donde DOCUMENT_ROOT no existe:
+    // sube 4 niveles desde /inc hasta public_html (o equivalente local).
+    if ($ruta_public === '') {
+        $ruta_public = dirname(__DIR__, 4);
+    }
+    $ruta_base_uploads = rtrim($ruta_public, '/') . '/uploads/';
+    $path_certificado  = $ruta_base_uploads . 'certificados/certificado.pfx';
 
-    if (!file_exists($path_certificado)) { throw new Exception("Error: No se encuentra el certificado pfx."); }
+    if (!file_exists($path_certificado)) {
+        throw new Exception("Error: No se encuentra el certificado pfx. Buscado en: " . $path_certificado);
+    }
 
     // NOTA: Como esto es un Cron, apuntamos directamente a la BD de Producción
     $conn = new mysqli("localhost", "tabolang_app", 'm{Hpj.?IZL$Kz${S', "tabolang_pedidos");

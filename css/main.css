@@ -585,6 +585,14 @@ select {
     border-bottom-color: #8e44ad;
 }
 
+.card-cafe {
+    border-bottom-color: #6f4a1f;
+}
+
+.card-rojo {
+    border-bottom-color: #c0392b;
+}
+
 .icon-circle {
     width: 70px;
     height: 70px;
@@ -616,6 +624,14 @@ select {
 
 .bg-stats {
     background-color: #8e44ad;
+}
+
+.bg-cafe {
+    background-color: #6f4a1f;
+}
+
+.bg-rojo {
+    background-color: #c0392b;
 }
 
 .plus-icon {
