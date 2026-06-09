@@ -79,16 +79,39 @@ try {
         exit;
     }
 
-    $pendientes = [];
+    $pendientes      = [];
+    $faltantes_debug = []; // para diagnóstico si nada existe
     while ($row = $res->fetch_assoc()) {
-        $ruta_fisica = str_replace("https://tabolango.cl/", __DIR__ . "/", $row['url_xml']);
+        // Convierte la URL pública del XML a la ruta física en el servidor.
+        // Mismo criterio que el path del certificado: usa $ruta_public, que apunta
+        // a /home/tabolang/public_html (donde realmente viven los archivos).
+        $ruta_fisica = str_replace(
+            'https://tabolango.cl/',
+            rtrim($ruta_public, '/') . '/',
+            $row['url_xml']
+        );
         if (file_exists($ruta_fisica)) {
             $row['ruta_fisica'] = $ruta_fisica;
-            $pendientes[] = $row;
+            $pendientes[]       = $row;
+        } else {
+            $faltantes_debug[] = [
+                'id_pedido' => $row['id_pedido'] ?? '?',
+                'folio'     => $row['folio']     ?? '?',
+                'url_xml'   => $row['url_xml']   ?? '?',
+                'buscado'   => $ruta_fisica,
+            ];
         }
     }
 
-    if (count($pendientes) === 0) throw new Exception("Hay registros, pero los XML físicos no existen.");
+    if (count($pendientes) === 0) {
+        // Devolvemos el detalle para saber exactamente qué archivos faltan.
+        echo json_encode([
+            "status"   => "error",
+            "message"  => "Hay registros, pero los XML físicos no existen.",
+            "faltantes"=> $faltantes_debug
+        ]);
+        exit;
+    }
 
     // 2. ARMAR EL SOBRE MÚLTIPLE
     $json_sobre = [
