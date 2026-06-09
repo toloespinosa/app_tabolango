@@ -141,8 +141,16 @@ try {
 
     if (strpos($xml_sobre, 'EnvioDTE') === false) throw new Exception("Fallo al empaquetar. RAW: " . strip_tags($xml_sobre));
 
-    $ruta_sobre_temp = __DIR__ . "/uploads/sobre_lote_diario_" . time() . ".xml";
-    file_put_contents($ruta_sobre_temp, $xml_sobre);
+    // Archivo temporal del sobre — debe ir bajo /public_html/uploads/ (no en el theme).
+    // Aseguramos que el directorio exista antes de escribir.
+    if (!is_dir($ruta_base_uploads)) {
+        throw new Exception("No existe el directorio de uploads: " . $ruta_base_uploads);
+    }
+    $ruta_sobre_temp = $ruta_base_uploads . "sobre_lote_diario_" . time() . ".xml";
+    $bytes = file_put_contents($ruta_sobre_temp, $xml_sobre);
+    if ($bytes === false || $bytes === 0) {
+        throw new Exception("No se pudo escribir el sobre temporal en: " . $ruta_sobre_temp);
+    }
 
     // 3. ENVIAR AL SII
     $json_envio = ["Certificado" => ["Rut" => $RUT_CERTIFICADO, "Password" => $PASS_CERTIFICADO], "Ambiente" => 1, "Tipo" => 1];
@@ -153,15 +161,26 @@ try {
     curl_setopt($ch_e, CURLOPT_POSTFIELDS, $post_envio);
     curl_setopt($ch_e, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch_e, CURLOPT_HTTPHEADER, ["Authorization: " . $API_KEY]);
-    $resp_sii = curl_exec($ch_e); curl_close($ch_e);
-    
-    @unlink($ruta_sobre_temp); 
+    $resp_sii   = curl_exec($ch_e);
+    $curl_err   = curl_error($ch_e);
+    $http_code  = curl_getinfo($ch_e, CURLINFO_HTTP_CODE);
+    curl_close($ch_e);
+
+    @unlink($ruta_sobre_temp);
+
+    // Diagnóstico explícito si la respuesta es vacía o cURL falló
+    if ($resp_sii === false || $resp_sii === '') {
+        throw new Exception("Respuesta vacía del SII | HTTP=$http_code | curl_err=$curl_err");
+    }
 
     $json_resp_sii = json_decode($resp_sii, true);
+    if ($json_resp_sii === null) {
+        throw new Exception("Respuesta no-JSON del SII | HTTP=$http_code | RAW=" . substr($resp_sii, 0, 500));
+    }
     if (isset($json_resp_sii['ok']) && $json_resp_sii['ok'] === false) throw new Exception("Rechazo SII: " . $resp_sii);
 
     $track_id = $json_resp_sii['trackId'] ?? $json_resp_sii['TrackId'] ?? null;
-    if (!$track_id) throw new Exception("Enviado sin TrackID: " . $resp_sii);
+    if (!$track_id) throw new Exception("Enviado sin TrackID | HTTP=$http_code | RAW=" . $resp_sii);
 
     // 4. ACTUALIZAR BASE DE DATOS MASIVAMENTE Y ENVIAR A DUEMINT
     $ids_str = implode(",", $ids_a_actualizar);
