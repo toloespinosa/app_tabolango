@@ -18,6 +18,13 @@
     flex-wrap: wrap;
 }
 
+/* Botón SAG (visible para todos, no se esconde por rol) */
+#sag-controls {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
 .admin-badge {
     background: #fff;
     padding: 10px 25px;
@@ -94,6 +101,95 @@ input:checked+.slider:before {
     background: #000;
     transform: translateY(-2px);
 }
+
+/* Botón SAG: más chico, lateral al de Agregar */
+.btn-sag {
+    background: #fff;
+    color: #0F4B29;
+    padding: 7px 14px;
+    border-radius: 50px;
+    border: 1.5px solid #0F4B29;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s;
+}
+
+.btn-sag:hover {
+    background: #0F4B29;
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Modal SAG: slots de archivos */
+.sag-slot {
+    background: #f7faf8;
+    border: 1px solid #e5ece8;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.sag-slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.sag-slot-header strong {
+    font-size: 13px;
+    color: #1a1a1a;
+}
+
+.sag-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    background: #0F4B29;
+    color: #fff !important;
+    border-radius: 16px;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.sag-link:hover { background: #0a3620; }
+
+.sag-upload-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 8px;
+    border-top: 1px dashed #d8d8d8;
+}
+
+.sag-upload-row input[type="file"] {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.sag-btn-subir {
+    padding: 7px 12px;
+    background: #0F4B29;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sag-btn-subir:hover:not(:disabled) { background: #0a3620; }
+.sag-btn-subir:disabled              { opacity: 0.6; cursor: not-allowed; }
 
 /* Grid */
 .autos-grid {

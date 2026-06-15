@@ -164,3 +164,17 @@ ALTER TABLE proveedores
 -- Cada cotización puede tener su foto propia (mostrar calidad al momento del precio).
 ALTER TABLE proveedor_cotizaciones
     ADD COLUMN foto_url VARCHAR(500) DEFAULT NULL AFTER notas;
+
+
+---------------- Autorización SAG en Mis Vehículos
+-- Tabla simple para guardar las URLs de los 2 documentos SAG (autorización para
+-- transportar mercadería agrícola). Una sola fila con id=1, se va actualizando.
+CREATE TABLE sag_documentos (
+    id           TINYINT       NOT NULL PRIMARY KEY,
+    doc_1_url    VARCHAR(500)  DEFAULT NULL,
+    doc_2_url    VARCHAR(500)  DEFAULT NULL,
+    updated_at   TIMESTAMP     NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    updated_by   VARCHAR(100)  DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO sag_documentos (id) VALUES (1);

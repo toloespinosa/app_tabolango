@@ -8,18 +8,13 @@ get_header();
         Gestión de Flota
     </h2>
 
-    <div style="max-width: 1000px; margin: -20px auto 30px auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 0 20px;">
-        <div class="action-card card-azul" onclick="abrirCopecEmpresa()" style="padding: 20px 15px; cursor: pointer; border-bottom-color: #ed1c24;">
-            <div class="icon-circle bg-azul" style="width: 50px; height: 50px; font-size: 20px; margin-bottom: 10px; background-color: #004a99;">
-                <i class="fa-solid fa-gas-pump"></i>
-            </div>
-            <div class="card-info">
-                <h3 style="font-size: 14px;">Copec Empresa</h3>
-                <p style="font-size: 10px;">Cargar Combustible</p>
-            </div>
-        </div>
+    <!-- Botón SAG: visible para todos los roles (los conductores lo necesitan en terreno) -->
+    <div id="sag-controls">
+        <button id="btn-sag" class="btn-sag" onclick="openSagModal()">
+            <i class="fa-solid fa-file-shield"></i> Autorización SAG
+        </button>
     </div>
-    
+
     <div id="admin-controls">
         <div class="admin-badge">
             <i class="fa-solid fa-user-shield"></i>
@@ -110,6 +105,50 @@ get_header();
             <div class="checkbox-list" id="lista-conductores-check"></div>
             <button class="btn-full">ACTUALIZAR ASIGNACIONES</button>
         </form>
+    </div>
+</div>
+
+<!-- ────────── Modal Autorización SAG ────────── -->
+<div id="modal-sag" class="modal-overlay custom-modal-autos">
+    <div class="modal-flota-box">
+        <span class="close-modal" onclick="cerrarModalAuto('modal-sag')">&times;</span>
+        <h3 style="margin-top:0"><i class="fa-solid fa-file-shield"></i> Autorización SAG</h3>
+
+        <div id="sag-meta" style="font-size:12px; color:#888; margin-bottom:12px;"></div>
+
+        <!-- Documento 1 -->
+        <div class="sag-slot">
+            <div class="sag-slot-header">
+                <strong>Inscripción de comercializadora</strong>
+                <a id="sag-link-1" href="#" target="_blank" class="sag-link" style="display:none;">
+                    <i class="fa-solid fa-down-to-line"></i> Ver / Descargar
+                </a>
+            </div>
+            <div class="sag-upload-row sag-admin-only" style="display:none;">
+                <input type="file" id="sag-file-1" accept=".pdf,image/*">
+                <button class="sag-btn-subir" onclick="subirSagDoc(1)">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Subir / Reemplazar
+                </button>
+            </div>
+        </div>
+
+        <!-- Documento 2 -->
+        <div class="sag-slot" style="margin-top:14px;">
+            <div class="sag-slot-header">
+                <strong>Plan operacional de trabajo</strong>
+                <a id="sag-link-2" href="#" target="_blank" class="sag-link" style="display:none;">
+                    <i class="fa-solid fa-down-to-line"></i> Ver / Descargar
+                </a>
+            </div>
+            <div class="sag-upload-row sag-admin-only" style="display:none;">
+                <input type="file" id="sag-file-2" accept=".pdf,image/*">
+                <button class="sag-btn-subir" onclick="subirSagDoc(2)">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Subir / Reemplazar
+                </button>
+            </div>
+        </div>
+
+        <div id="sag-msg" style="margin-top:14px; font-size:12px;"></div>
     </div>
 </div>
 

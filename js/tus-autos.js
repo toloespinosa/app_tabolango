@@ -176,6 +176,8 @@ function renderAutos(autos, canEdit) {
 function toggleAdminMode() {
     const on = document.getElementById('admin-mode-toggle').checked;
     document.querySelectorAll('.admin-actions').forEach(el => el.style.display = on ? 'grid' : 'none');
+    // Las filas de subida del modal SAG sólo aparecen en modo edición
+    document.querySelectorAll('.sag-admin-only').forEach(el => el.style.display = on ? 'flex' : 'none');
 }
 
 function cerrarModalAuto(id) {
@@ -283,3 +285,110 @@ async function submitLinkUser(e) {
         Swal.fire({ ...window.swalConfig, title: 'Error', text: 'Hubo un problema al asignar los conductores.', icon: 'error' });
     }
 }
+
+// ============================================================
+// AUTORIZACIÓN SAG — gestión de los 2 documentos
+// ============================================================
+window.openSagModal = async function () {
+    const modal = document.getElementById('modal-sag');
+    modal.style.display = 'flex';
+    document.getElementById('sag-msg').textContent = '';
+
+    // Re-aplica el estado actual del switch admin a las filas de subida.
+    const adminOn = document.getElementById('admin-mode-toggle')?.checked || false;
+    document.querySelectorAll('.sag-admin-only').forEach(el => el.style.display = adminOn ? 'flex' : 'none');
+
+    try {
+        const res  = await fetch(window.getApi('api_sag.php') + '&action=get_docs');
+        const data = await res.json();
+        actualizarSagUI(data);
+    } catch (e) {
+        document.getElementById('sag-msg').innerHTML =
+            '<span style="color:#c00;">No se pudo cargar el estado actual de los documentos.</span>';
+    }
+};
+
+function actualizarSagUI(data) {
+    [1, 2].forEach(slot => {
+        const url  = data['doc_' + slot + '_url'];
+        const link = document.getElementById('sag-link-' + slot);
+        if (url) {
+            link.href = url;
+            link.style.display = 'inline-flex';
+        } else {
+            link.style.display = 'none';
+        }
+    });
+    if (data.updated_at) {
+        const fecha = new Date(data.updated_at.replace(' ', 'T')).toLocaleString('es-CL');
+        document.getElementById('sag-meta').innerHTML =
+            'Última actualización: <strong>' + fecha + '</strong>' +
+            (data.updated_by ? ' por ' + data.updated_by : '');
+    } else {
+        document.getElementById('sag-meta').textContent = 'Sin documentos cargados aún.';
+    }
+}
+
+/**
+ * Convierte un File en string base64 (data URI). Usado para subir documentos
+ * SAG sin pasar por multipart/form-data (que en LocalWP daba problemas).
+ */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+        reader.readAsDataURL(file);
+    });
+}
+
+window.subirSagDoc = async function (slot) {
+    const inp = document.getElementById('sag-file-' + slot);
+    const f   = inp.files && inp.files[0];
+    if (!f) {
+        document.getElementById('sag-msg').innerHTML =
+            '<span style="color:#c00;">Selecciona un archivo primero.</span>';
+        return;
+    }
+    // Tope razonable para evitar JSON enorme. PDFs > 8MB casi no existen para este uso.
+    if (f.size > 8 * 1024 * 1024) {
+        document.getElementById('sag-msg').innerHTML =
+            '<span style="color:#c00;">El archivo supera los 8 MB. Reducílo antes de subirlo.</span>';
+        return;
+    }
+
+    const btn = document.querySelector(`.sag-slot:nth-of-type(${slot}) .sag-btn-subir`);
+    const orig = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
+    document.getElementById('sag-msg').textContent = '';
+
+    try {
+        const b64 = await fileToBase64(f);
+        const res = await fetch(window.getApi('api_sag.php') + '&action=upload_doc', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ slot, archivo_b64: b64 })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Error');
+
+        // Actualiza la vista con el nuevo enlace
+        const link = document.getElementById('sag-link-' + slot);
+        link.href = data.url;
+        link.style.display = 'inline-flex';
+        inp.value = '';
+
+        document.getElementById('sag-msg').innerHTML =
+            '<span style="color:#1b5e20;"><i class="fa-solid fa-check"></i> Documento ' + slot + ' actualizado correctamente.</span>';
+        // Refresca metadatos
+        try {
+            const r2 = await fetch(window.getApi('api_sag.php') + '&action=get_docs');
+            actualizarSagUI(await r2.json());
+        } catch {}
+    } catch (e) {
+        document.getElementById('sag-msg').innerHTML =
+            '<span style="color:#c00;">Error: ' + (e.message || 'No se pudo subir') + '</span>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    }
+};
