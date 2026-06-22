@@ -299,12 +299,17 @@ window.openSagModal = async function () {
     document.querySelectorAll('.sag-admin-only').forEach(el => el.style.display = adminOn ? 'flex' : 'none');
 
     try {
-        const res  = await fetch(window.getApi('api_sag.php') + '&action=get_docs');
-        const data = await res.json();
+        const res = await fetch(window.getApi('api_sag.php') + '&action=get_docs');
+        let data;
+        try { data = await res.json(); }
+        catch {
+            throw new Error('El servidor no devolvió JSON (HTTP ' + res.status +
+                '). Probablemente falta la tabla sag_documentos o el archivo api_sag.php.');
+        }
         actualizarSagUI(data);
     } catch (e) {
         document.getElementById('sag-msg').innerHTML =
-            '<span style="color:#c00;">No se pudo cargar el estado actual de los documentos.</span>';
+            '<span style="color:#c00;">' + (e.message || 'No se pudo cargar') + '</span>';
     }
 };
 
@@ -369,8 +374,12 @@ window.subirSagDoc = async function (slot) {
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ slot, archivo_b64: b64 })
         });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'Error');
+        let data;
+        try { data = await res.json(); }
+        catch {
+            throw new Error('Respuesta inválida del servidor (HTTP ' + res.status + ')');
+        }
+        if (!data.success) throw new Error(data.error || ('HTTP ' + res.status));
 
         // Actualiza la vista con el nuevo enlace
         const link = document.getElementById('sag-link-' + slot);

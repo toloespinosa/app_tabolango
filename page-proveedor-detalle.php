@@ -50,11 +50,12 @@ get_header();
                         <th style="text-align:center;">Validez</th>
                         <th style="text-align:center;">Vence</th>
                         <th style="text-align:center;">Estado</th>
+                        <th style="text-align:center;">Disponible</th>
                         <th style="text-align:center;">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="pd-tbody">
-                    <tr><td colspan="9" style="text-align:center; padding:40px; color:#aaa;">Cargando...</td></tr>
+                    <tr><td colspan="10" style="text-align:center; padding:40px; color:#aaa;">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -138,6 +139,14 @@ get_header();
                         <option value="semanal" selected>Semanal (+7 días)</option>
                         <option value="mensual">Mensual (+30 días)</option>
                     </select>
+                </div>
+                <div class="pd-campo">
+                    <label>Disponible desde (opcional)</label>
+                    <input type="date" id="nc-disp-desde">
+                </div>
+                <div class="pd-campo">
+                    <label>Disponible hasta (opcional)</label>
+                    <input type="date" id="nc-disp-hasta">
                 </div>
                 <div class="pd-campo" style="grid-column: 1 / -1;">
                     <label>Notas (opcional)</label>
@@ -239,12 +248,13 @@ get_header();
                         <th style="text-align:right;">Precio</th>
                         <th style="text-align:center;">Δ</th>
                         <th style="text-align:center;">Validez</th>
+                        <th style="text-align:center;">Disponible</th>
                         <th>Notas</th>
                         <th>Por</th>
                     </tr>
                 </thead>
                 <tbody id="hist-tbody">
-                    <tr><td colspan="7" style="text-align:center; padding:30px; color:#aaa;">Cargando...</td></tr>
+                    <tr><td colspan="8" style="text-align:center; padding:30px; color:#aaa;">Cargando...</td></tr>
                 </tbody>
             </table>
         </div>

@@ -4,3 +4,11 @@ inc/service-account.json
 # Ignorar archivos generados dinámicamente y certificados sensibles
 inc/uploads/
 inc/uploads/*
+
+# Configuración local de Claude Code (permisos y launch del editor)
+.claude/
+
+# Archivos del sistema y editores
+.DS_Store
+*.swp
+*.swo

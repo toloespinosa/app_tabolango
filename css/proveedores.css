@@ -164,6 +164,34 @@
     font-weight: 700;
 }
 
+/* Chips de filtro para "Por producto" */
+.prov-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+}
+
+.prov-chip {
+    padding: 7px 14px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    background: #fff;
+    color: #666;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.18s;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.prov-chip:hover  { border-color: #6f4a1f; color: #6f4a1f; background: #fbf6ee; }
+.prov-chip.active { background: #6f4a1f; color: #fff; border-color: #6f4a1f; }
+
 /* Bloque "Mejor precio" dentro del card de producto */
 .prov-mejor-precio {
     margin-top: 10px;
@@ -283,6 +311,22 @@
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
+
+/* Badges de disponibilidad */
+.badge-disp {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.badge-disp.disponible { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+.badge-disp.futuro     { background: #e3f2fd; color: #0d47a1; border: 1px solid #bbdefb; }
+.badge-disp.terminado  { background: #ffebee; color: #b71c1c; border: 1px solid #ffcdd2; }
+.badge-disp.sin_info   { background: #f3f3f3; color: #999;    border: 1px solid #ddd; }
 
 /* Modal */
 .prov-modal-overlay {

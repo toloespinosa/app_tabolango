@@ -166,6 +166,14 @@ ALTER TABLE proveedor_cotizaciones
     ADD COLUMN foto_url VARCHAR(500) DEFAULT NULL AFTER notas;
 
 
+---------------- Disponibilidad/estacionalidad en cotizaciones de compra
+-- Permite registrar cuándo el proveedor tiene producto disponible.
+-- Ambas columnas son opcionales: si están en NULL = "disponible sin fecha".
+ALTER TABLE proveedor_cotizaciones
+    ADD COLUMN disponible_desde DATE DEFAULT NULL AFTER valido_hasta,
+    ADD COLUMN disponible_hasta DATE DEFAULT NULL AFTER disponible_desde;
+
+
 ---------------- Autorización SAG en Mis Vehículos
 -- Tabla simple para guardar las URLs de los 2 documentos SAG (autorización para
 -- transportar mercadería agrícola). Una sola fila con id=1, se va actualizando.

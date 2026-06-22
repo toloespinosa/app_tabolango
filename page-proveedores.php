@@ -39,6 +39,12 @@ get_header();
 
     <!-- Vista 2: por producto (grid de cards) -->
     <div id="vista-productos" class="prov-vista" style="display:none;">
+        <div class="prov-filtros">
+            <button class="prov-chip active" data-filtro="todos">Todos</button>
+            <button class="prov-chip"        data-filtro="disponible">🟢 Disponibles ahora</button>
+            <button class="prov-chip"        data-filtro="futuro">🔵 Próximamente</button>
+            <button class="prov-chip"        data-filtro="terminado">🔴 Fuera de temporada</button>
+        </div>
         <div id="grid-productos" class="prov-grid">
             <div class="prov-loading">Cargando productos...</div>
         </div>
@@ -63,6 +69,7 @@ get_header();
                         <th style="text-align:right;">Precio</th>
                         <th style="text-align:center;">Validez</th>
                         <th style="text-align:center;">Estado</th>
+                        <th style="text-align:center;">Disponible</th>
                         <th style="text-align:center;">Ir</th>
                     </tr>
                 </thead>

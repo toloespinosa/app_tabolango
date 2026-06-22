@@ -9,8 +9,19 @@
     let proveedoresData  = [];
     let productosRaw     = []; // todas las filas crudas del servidor
     let productosAgrupados = []; // grupos por (producto + calibre) con stats
+    let filtroDisp       = 'todos'; // todos | disponible | futuro | terminado
 
     const fmt = window.formatCLP || (v => '$' + v);
+
+    // ── Chips de filtro de disponibilidad ────────────────────
+    document.querySelectorAll('.prov-chip').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.prov-chip').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            filtroDisp = this.dataset.filtro;
+            renderProductos();
+        });
+    });
 
     // ── Tabs ─────────────────────────────────────────────────
     document.querySelectorAll('.prov-tab').forEach(btn => {
@@ -150,11 +161,24 @@
                 }
             });
 
+            // Cuántos proveedores tienen stock disponible HOY (sin_info = se asume disponible)
+            const disponiblesAhora = g.filas.filter(f =>
+                f.estado_disponibilidad === 'disponible' || f.estado_disponibilidad === 'sin_info'
+            ).length;
+
+            // Set de estados presentes en este producto (cualquier proveedor).
+            // Lo usa el filtro para mostrar un mismo producto en varios chips a la vez.
+            const estadosPresentes = new Set(
+                g.filas.map(f => f.estado_disponibilidad || 'sin_info')
+            );
+
             return {
                 ...g,
-                n_proveedores: n_total,
-                tiene_vigentes: vigentes.length > 0,
-                mejor: mejor
+                n_proveedores:     n_total,
+                n_disponibles:     disponiblesAhora,
+                tiene_vigentes:    vigentes.length > 0,
+                estados_presentes: estadosPresentes,
+                mejor:             mejor
             };
         });
 
@@ -166,15 +190,26 @@
     function renderProductos() {
         const grid = document.getElementById('grid-productos');
         const q    = (document.getElementById('prov-buscar').value || '').toLowerCase().trim();
-        const list = productosAgrupados.filter(g =>
-            (g.producto_nombre + ' ' + g.variedad + ' ' + g.calibre).toLowerCase().includes(q)
-        );
+        const list = productosAgrupados.filter(g => {
+            // Filtro por texto
+            const matchTxt = (g.producto_nombre + ' ' + g.variedad + ' ' + g.calibre)
+                                .toLowerCase().includes(q);
+            if (!matchTxt) return false;
+            // Filtro por disponibilidad — pasa si CUALQUIER proveedor del producto
+            // está en ese estado. Así un producto con un proveedor disponible y
+            // otro próximo aparece en ambos filtros.
+            if (filtroDisp === 'todos') return true;
+            if (filtroDisp === 'disponible') {
+                return g.estados_presentes.has('disponible') || g.estados_presentes.has('sin_info');
+            }
+            return g.estados_presentes.has(filtroDisp);
+        });
 
         if (!list.length) {
             grid.innerHTML = '<div class="prov-loading">' +
                 (productosAgrupados.length === 0
                     ? 'Aún no hay productos cotizados. Agrega cotizaciones desde la página de un proveedor.'
-                    : 'Sin resultados') +
+                    : 'Sin resultados con este filtro') +
                 '</div>';
             return;
         }
@@ -206,9 +241,10 @@
                             <div class="prov-card-stat-lbl">${g.n_proveedores === 1 ? 'Proveedor' : 'Proveedores'}</div>
                         </div>
                         <div style="text-align:right;">
-                            <span class="badge-vigencia ${klassEstado}" style="font-size:9px;">
-                                ${textoEstado(klassEstado)}
-                            </span>
+                            <div class="prov-card-stat-num" style="color:${g.n_disponibles > 0 ? '#1b5e20' : '#c62828'};">
+                                ${g.n_disponibles}
+                            </div>
+                            <div class="prov-card-stat-lbl">Con stock</div>
                         </div>
                     </div>
                 </div>`;
@@ -238,18 +274,36 @@
             </div>
         `;
 
-        // Filas ordenadas: primero por estado (vigente > vence_hoy > vencido > sin_precio)
-        // y dentro de cada grupo, por precio ascendente.
-        const prioridad = { vigente: 0, vence_hoy: 1, vencido: 2, sin_precio: 3 };
+        // Filas ordenadas: primero los que tienen stock + precio vigente, luego por precio ascendente.
+        const prioDisp = { disponible: 0, sin_info: 1, futuro: 2, terminado: 3 };
+        const prioVig  = { vigente: 0, vence_hoy: 1, vencido: 2, sin_precio: 3 };
         const ordenadas = [...g.filas].sort((a, b) => {
-            const pa = prioridad[a.estado_vigencia] ?? 4;
-            const pb = prioridad[b.estado_vigencia] ?? 4;
-            if (pa !== pb) return pa - pb;
+            const pda = prioDisp[a.estado_disponibilidad] ?? 4;
+            const pdb = prioDisp[b.estado_disponibilidad] ?? 4;
+            if (pda !== pdb) return pda - pdb;
+            const pva = prioVig[a.estado_vigencia] ?? 4;
+            const pvb = prioVig[b.estado_vigencia] ?? 4;
+            if (pva !== pvb) return pva - pvb;
             return (parseFloat(a.precio) || Infinity) - (parseFloat(b.precio) || Infinity);
         });
 
+        const fmtDMY = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CL', {day:'2-digit', month:'2-digit'}) : '';
+
         document.getElementById('prod-det-tbody').innerHTML = ordenadas.map(f => {
             const precio = f.precio ? fmt(f.precio) : '<span style="color:#aaa;">—</span>';
+            // Disponibilidad
+            const dispLabel = ({
+                disponible: 'Disponible',
+                futuro:     'Llega ' + fmtDMY(f.disponible_desde),
+                terminado:  'Fuera de temp.',
+                sin_info:   '—'
+            })[f.estado_disponibilidad] || '—';
+            const dispFechas = (() => {
+                if (f.estado_disponibilidad === 'disponible' && f.disponible_hasta) return 'hasta ' + fmtDMY(f.disponible_hasta);
+                if (f.estado_disponibilidad === 'futuro'     && f.disponible_hasta) return 'hasta ' + fmtDMY(f.disponible_hasta);
+                if (f.estado_disponibilidad === 'terminado'  && f.disponible_hasta) return 'terminó ' + fmtDMY(f.disponible_hasta);
+                return '';
+            })();
             return `
                 <tr>
                     <td>
@@ -265,6 +319,10 @@
                     </td>
                     <td style="text-align:center;">
                         <span class="badge-vigencia ${f.estado_vigencia}">${textoEstado(f.estado_vigencia)}</span>
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="badge-disp ${f.estado_disponibilidad || 'sin_info'}">${dispLabel}</span>
+                        ${dispFechas ? `<div style="font-size:10px; color:#666; margin-top:3px;">${dispFechas}</div>` : ''}
                     </td>
                     <td style="text-align:center;">
                         <a href="/proveedor-detalle/?id=${f.id_proveedor}"

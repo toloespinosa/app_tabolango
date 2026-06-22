@@ -240,6 +240,31 @@
     letter-spacing: 0.3px;
 }
 
+/* Badges de disponibilidad / estacionalidad */
+.badge-disp {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.badge-disp.disponible { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+.badge-disp.futuro     { background: #e3f2fd; color: #0d47a1; border: 1px solid #bbdefb; }
+.badge-disp.terminado  { background: #ffebee; color: #b71c1c; border: 1px solid #ffcdd2; }
+.badge-disp.sin_info   { background: #f3f3f3; color: #999;    border: 1px solid #ddd; }
+
+.badge-disp-fechas {
+    display: block;
+    font-size: 10px;
+    color: #666;
+    font-weight: 600;
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
 .pd-btn-hist {
     background: transparent;
     border: 1px solid #ddd;

@@ -202,12 +202,19 @@ if ($action === 'list_productos') {
                last_cot.precio, last_cot.validez, last_cot.valido_hasta,
                last_cot.notas AS cot_notas, last_cot.fecha_cotizacion,
                last_cot.foto_url AS cot_foto_url,
+               last_cot.disponible_desde, last_cot.disponible_hasta,
                CASE
                    WHEN last_cot.valido_hasta IS NULL THEN 'sin_precio'
                    WHEN last_cot.valido_hasta < CURDATE() THEN 'vencido'
                    WHEN last_cot.valido_hasta = CURDATE() THEN 'vence_hoy'
                    ELSE 'vigente'
                END AS estado_vigencia,
+               CASE
+                   WHEN last_cot.disponible_desde IS NULL AND last_cot.disponible_hasta IS NULL THEN 'sin_info'
+                   WHEN last_cot.disponible_desde IS NOT NULL AND last_cot.disponible_desde > CURDATE() THEN 'futuro'
+                   WHEN last_cot.disponible_hasta IS NOT NULL AND last_cot.disponible_hasta < CURDATE() THEN 'terminado'
+                   ELSE 'disponible'
+               END AS estado_disponibilidad,
                (SELECT COUNT(*) FROM proveedor_cotizaciones pc2
                  WHERE pc2.id_proveedor_producto = pp.id) AS n_cotizaciones
           FROM proveedor_productos pp
@@ -261,7 +268,8 @@ if ($action === 'precio_en_fecha') {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) fail("Fecha inválida (YYYY-MM-DD)");
 
     $stmt = $conn->prepare(
-        "SELECT precio, validez, valido_hasta, notas, foto_url, registrado_por, fecha_cotizacion
+        "SELECT precio, validez, valido_hasta, disponible_desde, disponible_hasta,
+                notas, foto_url, registrado_por, fecha_cotizacion
            FROM proveedor_cotizaciones
           WHERE id_proveedor_producto = ?
             AND DATE(fecha_cotizacion) <= ?
@@ -295,6 +303,8 @@ if ($action === 'add_producto') {
     $precio_inicial  = isset($input['precio'])  ? floatval($input['precio']) : 0;
     $validez         = $input['validez'] ?? 'semanal';
     $notas_cot       = trim($input['notas']               ?? '');
+    $disp_desde      = !empty($input['disponible_desde']) ? $input['disponible_desde'] : null;
+    $disp_hasta      = !empty($input['disponible_hasta']) ? $input['disponible_hasta'] : null;
 
     if ($id_prov <= 0 || $nombre === '') fail("Proveedor y producto son obligatorios");
 
@@ -315,10 +325,10 @@ if ($action === 'add_producto') {
         $foto_url     = guardarFotoBase64($input['foto_b64'] ?? '');
         $stmt2 = $conn->prepare(
             "INSERT INTO proveedor_cotizaciones
-                (id_proveedor_producto, precio, validez, valido_hasta, notas, foto_url, registrado_por)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+                (id_proveedor_producto, precio, validez, valido_hasta, disponible_desde, disponible_hasta, notas, foto_url, registrado_por)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt2->bind_param("idsssss", $id_pp, $precio_inicial, $validez, $valido_hasta, $notas_cot, $foto_url, $usuario);
+        $stmt2->bind_param("idsssssss", $id_pp, $precio_inicial, $validez, $valido_hasta, $disp_desde, $disp_hasta, $notas_cot, $foto_url, $usuario);
         $stmt2->execute();
         $stmt2->close();
     }
@@ -326,11 +336,13 @@ if ($action === 'add_producto') {
 }
 
 if ($action === 'add_cotizacion') {
-    // Guarda un nuevo precio en el historial (con foto opcional)
-    $id_pp     = intval($input['id_proveedor_producto'] ?? 0);
-    $precio    = floatval($input['precio'] ?? 0);
-    $validez   = $input['validez'] ?? 'semanal';
-    $notas     = trim($input['notas'] ?? '');
+    // Guarda un nuevo precio en el historial (con foto y disponibilidad opcionales)
+    $id_pp      = intval($input['id_proveedor_producto'] ?? 0);
+    $precio     = floatval($input['precio'] ?? 0);
+    $validez    = $input['validez'] ?? 'semanal';
+    $notas      = trim($input['notas'] ?? '');
+    $disp_desde = !empty($input['disponible_desde']) ? $input['disponible_desde'] : null;
+    $disp_hasta = !empty($input['disponible_hasta']) ? $input['disponible_hasta'] : null;
 
     if ($id_pp <= 0 || $precio <= 0) fail("Producto y precio son obligatorios");
     if (!in_array($validez, ['diaria','semanal','mensual'], true)) $validez = 'semanal';
@@ -341,10 +353,10 @@ if ($action === 'add_cotizacion') {
 
     $stmt = $conn->prepare(
         "INSERT INTO proveedor_cotizaciones
-            (id_proveedor_producto, precio, validez, valido_hasta, notas, foto_url, registrado_por)
-         VALUES (?, ?, ?, ?, ?, ?, ?)"
+            (id_proveedor_producto, precio, validez, valido_hasta, disponible_desde, disponible_hasta, notas, foto_url, registrado_por)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
-    $stmt->bind_param("idsssss", $id_pp, $precio, $validez, $valido_hasta, $notas, $foto_url, $usuario);
+    $stmt->bind_param("idsssssss", $id_pp, $precio, $validez, $valido_hasta, $disp_desde, $disp_hasta, $notas, $foto_url, $usuario);
     if (!$stmt->execute()) fail($conn->error, 500);
     $stmt->close();
     ok(['valido_hasta' => $valido_hasta, 'foto_url' => $foto_url]);
@@ -355,7 +367,8 @@ if ($action === 'get_historial') {
     $id_pp = intval($_GET['id_proveedor_producto'] ?? 0);
     if ($id_pp <= 0) fail("Producto inválido");
     $stmt = $conn->prepare(
-        "SELECT id, precio, validez, valido_hasta, notas, foto_url, registrado_por, fecha_cotizacion
+        "SELECT id, precio, validez, valido_hasta, disponible_desde, disponible_hasta,
+                notas, foto_url, registrado_por, fecha_cotizacion
            FROM proveedor_cotizaciones
           WHERE id_proveedor_producto = ?
           ORDER BY fecha_cotizacion DESC"
@@ -396,12 +409,19 @@ if ($action === 'search_by_product') {
                pr.id_proveedor, pr.nombre AS proveedor_nombre,
                pr.contacto AS proveedor_contacto, pr.telefono AS proveedor_telefono,
                last_cot.precio, last_cot.validez, last_cot.valido_hasta,
+               last_cot.disponible_desde, last_cot.disponible_hasta,
                CASE
                    WHEN last_cot.valido_hasta IS NULL THEN 'sin_precio'
                    WHEN last_cot.valido_hasta < CURDATE() THEN 'vencido'
                    WHEN last_cot.valido_hasta = CURDATE() THEN 'vence_hoy'
                    ELSE 'vigente'
-               END AS estado_vigencia
+               END AS estado_vigencia,
+               CASE
+                   WHEN last_cot.disponible_desde IS NULL AND last_cot.disponible_hasta IS NULL THEN 'sin_info'
+                   WHEN last_cot.disponible_desde IS NOT NULL AND last_cot.disponible_desde > CURDATE() THEN 'futuro'
+                   WHEN last_cot.disponible_hasta IS NOT NULL AND last_cot.disponible_hasta < CURDATE() THEN 'terminado'
+                   ELSE 'disponible'
+               END AS estado_disponibilidad
           FROM proveedor_productos pp
           JOIN proveedores pr ON pr.id_proveedor = pp.id_proveedor AND pr.activo = 1
           LEFT JOIN (

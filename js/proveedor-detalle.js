@@ -59,7 +59,7 @@
             llenarSelectExistentes();
         } catch (e) {
             document.getElementById('pd-tbody').innerHTML =
-                '<tr><td colspan="9" style="text-align:center; padding:30px; color:#c00;">Error al cargar productos</td></tr>';
+                '<tr><td colspan="10" style="text-align:center; padding:30px; color:#c00;">Error al cargar productos</td></tr>';
         }
     }
 
@@ -71,7 +71,7 @@
         );
 
         if (!list.length) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:40px; color:#aaa;">
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:40px; color:#aaa;">
                 ${productos.length === 0
                     ? 'Aún no hay productos cotizados. Agrega el primero con "Nueva cotización".'
                     : 'Sin resultados'}
@@ -102,6 +102,13 @@
                     <td style="text-align:center; color:#666;">${vence}</td>
                     <td style="text-align:center;">
                         <span class="badge-vigencia ${p.estado_vigencia}">${textoEstado(p.estado_vigencia)}</span>
+                    </td>
+                    <td style="text-align:center;">
+                        ${(() => {
+                            const d = disponibilidadInfo(p.estado_disponibilidad, p.disponible_desde, p.disponible_hasta);
+                            return `<span class="badge-disp ${d.klass}">${d.label}</span>` +
+                                   (d.fechas ? `<span class="badge-disp-fechas">${d.fechas}</span>` : '');
+                        })()}
                     </td>
                     <td style="text-align:center; white-space:nowrap;">
                         <button class="pd-btn-hist" ${p.n_cotizaciones > 0 ? '' : 'disabled'}
@@ -139,6 +146,34 @@
             vencido:    'Vencido',
             sin_precio: 'Sin precio'
         })[s] || s;
+    }
+
+    /**
+     * Devuelve { klass, label, fechas } para un par (disponible_desde, disponible_hasta)
+     * + el estado_disponibilidad que ya calculó el servidor.
+     */
+    function disponibilidadInfo(estado, desde, hasta) {
+        const fmtDMY = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-CL', {day:'2-digit', month:'2-digit'}) : '';
+        let label  = '';
+        let fechas = '';
+        switch (estado) {
+            case 'futuro':
+                label  = 'Llega ' + fmtDMY(desde);
+                fechas = hasta ? 'hasta ' + fmtDMY(hasta) : '';
+                break;
+            case 'terminado':
+                label  = 'Fuera de temp.';
+                fechas = 'terminó ' + fmtDMY(hasta);
+                break;
+            case 'disponible':
+                label  = 'Disponible';
+                if (hasta)      fechas = 'hasta ' + fmtDMY(hasta);
+                else if (desde) fechas = 'desde ' + fmtDMY(desde);
+                break;
+            default:
+                label = '—';
+        }
+        return { klass: estado || 'sin_info', label, fechas };
     }
 
     window.pd_filtrar = renderTabla;
@@ -189,7 +224,8 @@
 
     window.pd_cerrarModal = function () {
         document.getElementById('modal-nueva-cotizacion').style.display = 'none';
-        ['nc-nombre','nc-variedad','nc-calibre','nc-unidad','nc-formato','nc-precio','nc-notas']
+        ['nc-nombre','nc-variedad','nc-calibre','nc-unidad','nc-formato',
+         'nc-precio','nc-notas','nc-disp-desde','nc-disp-hasta']
             .forEach(id => { const e = document.getElementById(id); e.value = ''; e.classList.remove('nc-error'); });
         document.getElementById('nc-link-producto').value = '';
         document.getElementById('nc-validez').value = 'semanal';
@@ -298,6 +334,13 @@
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...';
             }
 
+            // Fechas de disponibilidad (opcionales)
+            const dispDesde = document.getElementById('nc-disp-desde').value || null;
+            const dispHasta = document.getElementById('nc-disp-hasta').value || null;
+            if (dispDesde && dispHasta && dispHasta < dispDesde) {
+                throw new Error('"Disponible hasta" no puede ser anterior a "Disponible desde"');
+            }
+
             let action, body;
             if (modoCot === 'existente') {
                 const id_pp = parseInt(document.getElementById('pd-prod-existente').value, 10);
@@ -306,6 +349,8 @@
                 body   = {
                     id_proveedor_producto: id_pp,
                     precio, validez, notas,
+                    disponible_desde: dispDesde,
+                    disponible_hasta: dispHasta,
                     foto_b64: fotoB64
                 };
             } else {
@@ -324,6 +369,8 @@
                     formato:          document.getElementById('nc-formato').value.trim(),
                     id_producto_link: document.getElementById('nc-link-producto').value || null,
                     precio, validez, notas: notas,
+                    disponible_desde: dispDesde,
+                    disponible_hasta: dispHasta,
                     foto_b64: fotoB64
                 };
             }
@@ -362,13 +409,13 @@
         document.getElementById('hist-producto').textContent = nombre;
         document.getElementById('modal-historial').style.display = 'flex';
         const tbody = document.getElementById('hist-tbody');
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#aaa;">Cargando...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#aaa;">Cargando...</td></tr>';
 
         try {
             const res = await fetch(URL_API + '&action=get_historial&id_proveedor_producto=' + id_pp);
             histDataActual = await res.json();
             if (!histDataActual.length) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#aaa;">Sin historial</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#aaa;">Sin historial</td></tr>';
                 document.getElementById('hist-grafico-vacio').style.display = 'block';
                 document.getElementById('hist-grafico').style.display = 'none';
                 return;
@@ -380,7 +427,7 @@
             marcarBotonRango(null); // ninguno activo (default = todo el rango)
             renderHistorial();
         } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#c00;">Error al cargar</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#c00;">Error al cargar</td></tr>';
         }
     };
 
@@ -400,7 +447,7 @@
     function renderTablaHistorial(list) {
         const tbody = document.getElementById('hist-tbody');
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#aaa;">Sin datos en el rango</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:#aaa;">Sin datos en el rango</td></tr>';
             return;
         }
         // Orden: más reciente arriba en tabla; pero el delta se calcula
@@ -425,6 +472,16 @@
             const foto = h.foto_url
                 ? `<img src="${escapeHtml(h.foto_url)}" class="pd-foto-thumb" alt="" onclick="pd_lightbox('${escapeJs(h.foto_url)}')">`
                 : '<span style="color:#ccc; font-size:14px;">—</span>';
+            // Estado de disponibilidad calculado client-side para cada entrada del historial,
+            // basado en las fechas guardadas con esa cotización (las del servidor son del registro actual).
+            const hoy = new Date().toISOString().slice(0,10);
+            let estadoDisp = 'sin_info';
+            if (h.disponible_desde || h.disponible_hasta) {
+                if (h.disponible_desde && h.disponible_desde > hoy) estadoDisp = 'futuro';
+                else if (h.disponible_hasta && h.disponible_hasta < hoy) estadoDisp = 'terminado';
+                else estadoDisp = 'disponible';
+            }
+            const di = disponibilidadInfo(estadoDisp, h.disponible_desde, h.disponible_hasta);
             return `
                 <tr>
                     <td>${new Date(h.fecha_cotizacion).toLocaleDateString('es-CL')}<br>
@@ -434,6 +491,10 @@
                     <td class="pd-precio">${fmt(h.precio)}</td>
                     <td style="text-align:center;"><span class="${d.klass}">${d.txt}</span></td>
                     <td style="text-align:center;"><span class="badge-validez">${h.validez}</span></td>
+                    <td style="text-align:center;">
+                        <span class="badge-disp ${di.klass}">${di.label}</span>
+                        ${di.fechas ? `<span class="badge-disp-fechas">${di.fechas}</span>` : ''}
+                    </td>
                     <td style="font-size:12px; color:#666;">${escapeHtml(h.notas || '—')}</td>
                     <td style="font-size:11px; color:#888;">${escapeHtml(h.registrado_por || '—')}</td>
                 </tr>`;
