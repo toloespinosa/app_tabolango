@@ -102,6 +102,16 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
             </a>
             <?php endif; ?>
 
+            <?php if (in_array($rol_id, [1, 2])) : // Solo Admin / Editor ?>
+            <a href="<?php echo home_url('/emitir-dte'); ?>" class="action-card card-stats">
+                <div class="icon-circle bg-stats">📄</div>
+                <div class="card-info">
+                    <h3>Emitir DTE</h3>
+                    <p>FACTURAS, NOTAS Y GUÍAS MANUALES</p>
+                </div>
+            </a>
+            <?php endif; ?>
+
         </div>
     </div>
     

@@ -16,29 +16,57 @@ try {
     $cols_url = $conn->query("SHOW COLUMNS FROM pedidos_activos LIKE 'url_nc'");
     $col_url_nc = ($cols_url && $cols_url->num_rows > 0) ? "url_nc" : "'' as url_nc";
 
-    $sql = "SELECT 
-                MAX(id_pedido) as id_pedido, 
-                numero_factura, 
-                MAX(fecha_despacho) as fecha_despacho, 
-                MAX(cliente) as cliente, 
-                MAX(url_factura) as url_factura, 
-                MAX($col_nc) as estado_nota_credito, 
+    // ── Fuente 1: facturas generadas desde pedidos (flujo automático) ──
+    $sql_pedidos = "SELECT
+                MAX(id_pedido) as id_pedido,
+                numero_factura,
+                MAX(fecha_despacho) as fecha_despacho,
+                MAX(cliente) as cliente,
+                MAX(url_factura) as url_factura,
+                MAX($col_nc) as estado_nota_credito,
                 MAX($col_url_nc) as url_nc,
-                SUM(precio_unitario * cantidad) as neto_calculado
-            FROM pedidos_activos 
-            WHERE numero_factura > 0 
-            GROUP BY numero_factura 
-            ORDER BY MAX(fecha_despacho) DESC, CAST(numero_factura AS UNSIGNED) DESC
+                SUM(precio_unitario * cantidad) as neto_calculado,
+                0 as es_manual,
+                '33' as tipo_documento
+            FROM pedidos_activos
+            WHERE numero_factura > 0
+            GROUP BY numero_factura";
+
+    // ── Fuente 2: DTEs emitidos manualmente (sin pedido asociado) ──
+    // Solo incluimos los que son facturas (33, 46) — guías y NC no van en este listado.
+    $sql_manuales = "SELECT
+                CONCAT('MAN-', id) as id_pedido,
+                folio as numero_factura,
+                DATE(fecha_emision) as fecha_despacho,
+                IFNULL(cliente_razon_social, '— Sin cliente —') as cliente,
+                url_pdf as url_factura,
+                '' as estado_nota_credito,
+                '' as url_nc,
+                IFNULL(monto_neto, 0) as neto_calculado,
+                1 as es_manual,
+                tipo_documento
+            FROM dte_emitidos
+            WHERE es_manual = 1
+              AND tipo_documento IN ('33','46')
+              AND folio > 0";
+
+    $sql = "($sql_pedidos) UNION ALL ($sql_manuales)
+            ORDER BY fecha_despacho DESC, CAST(numero_factura AS UNSIGNED) DESC
             LIMIT $limit OFFSET $offset";
-            
+
     $res = $conn->query($sql);
     if (!$res) throw new Exception("Error SQL: " . $conn->error);
-    
+
     $data = [];
     while($row = $res->fetch_assoc()) {
         $neto = (float)$row['neto_calculado'];
-        $row['total_fmt'] = "$" . number_format(round($neto * 1.19), 0, ',', '.');
-        $row['fecha_fmt'] = (!empty($row['fecha_despacho']) && $row['fecha_despacho'] !== '0000-00-00') 
+        // Para los manuales el monto_neto ya es entero; para los de pedidos
+        // se calcula como suma de precio*cantidad y se suma IVA aparte.
+        $totalConIva = $row['es_manual']
+            ? round($neto * 1.19)        // manual: neto sin IVA, le sumamos 19%
+            : round($neto * 1.19);       // automático: igual fórmula histórica
+        $row['total_fmt'] = "$" . number_format($totalConIva, 0, ',', '.');
+        $row['fecha_fmt'] = (!empty($row['fecha_despacho']) && $row['fecha_despacho'] !== '0000-00-00')
             ? date("d/m/Y", strtotime($row['fecha_despacho'])) : "S/F";
         $data[] = $row;
     }

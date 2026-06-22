@@ -137,6 +137,10 @@ $rol_id = function_exists('tabolango_get_user_role') ? tabolango_get_user_role()
                             <a href="<?php echo home_url('/cotizador/'); ?>"><span role="img" class="emoji">🧾</span> Cotizador</a>
                             <a href="<?php echo home_url('/proveedores/'); ?>"><span role="img" class="emoji">🚚</span> Proveedores</a>
                         <?php endif; ?>
+
+                        <?php if (in_array($rol_id, [1, 2])) : // Solo Admin / Editor ?>
+                            <a href="<?php echo home_url('/emitir-dte/'); ?>"><span role="img" class="emoji">📄</span> Emitir DTE</a>
+                        <?php endif; ?>
                         
                         <?php if (in_array($rol_id, [1, 2, 3])) : // Admin(1), Editor(2), Conductor(3) ?>
                             <a href="<?php echo home_url('/tus-autos/'); ?>"><span role="img" class="emoji">🚛</span> Mis Autos</a>

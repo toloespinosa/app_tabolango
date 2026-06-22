@@ -43,7 +43,12 @@ try {
 
     if ($action == 'status') {
         $status = [];
-        $types = [33 => 'Factura Electrónica', 52 => 'Guía Despacho', 61 => 'Nota Crédito'];
+        $types = [
+            33 => 'Factura Electrónica',
+            46 => 'Factura de Compra',
+            52 => 'Guía Despacho',
+            61 => 'Nota Crédito',
+        ];
         
         foreach ($types as $code => $name) {
             $lastUsed = obtenerUltimoFolioBD($conn, $code);
@@ -141,11 +146,27 @@ try {
 // =========================================================================
 
 function obtenerUltimoFolioBD($conn, $tipo) {
+    // Fuente universal: dte_emitidos cubre TODOS los tipos (manuales y automáticos)
+    $tipo_str = (string)$tipo;
+    $stmt = $conn->prepare("SELECT MAX(folio) AS u FROM dte_emitidos WHERE tipo_documento = ?");
+    $stmt->bind_param("s", $tipo_str);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $folio_dte = ($row && $row['u']) ? (int)$row['u'] : 0;
+
+    // Fallback histórico: pedidos_activos para los tipos clásicos
+    // (por si hay folios viejos que nunca llegaron a dte_emitidos).
     $cols = [33 => 'numero_factura', 52 => 'numero_guia', 61 => 'numero_nc'];
-    $col = $cols[$tipo];
-    $res = $conn->query("SELECT MAX(CAST($col AS UNSIGNED)) as u FROM pedidos_activos WHERE $col > 0");
-    $row = $res->fetch_assoc();
-    return $row['u'] ? (int)$row['u'] : 0;
+    $folio_ped = 0;
+    if (isset($cols[(int)$tipo])) {
+        $col = $cols[(int)$tipo];
+        $res = $conn->query("SELECT MAX(CAST($col AS UNSIGNED)) AS u FROM pedidos_activos WHERE $col > 0");
+        $row = $res ? $res->fetch_assoc() : null;
+        $folio_ped = ($row && $row['u']) ? (int)$row['u'] : 0;
+    }
+
+    return max($folio_dte, $folio_ped);
 }
 
 function analizarCAFsMultiples($dir, $tipo, $ultimoUsado) {

@@ -174,6 +174,24 @@ ALTER TABLE proveedor_cotizaciones
     ADD COLUMN disponible_hasta DATE DEFAULT NULL AFTER disponible_desde;
 
 
+---------------- Módulo Emitir DTE Manual
+-- Hace nullable id_pedido y agrega columnas para DTEs creados a mano (sin
+-- pedido asociado), con referencia opcional al DTE original (notas de crédito)
+-- y el email del usuario que lo emitió.
+ALTER TABLE dte_emitidos
+    MODIFY COLUMN id_pedido VARCHAR(50) NULL DEFAULT NULL,
+    ADD COLUMN es_manual         TINYINT(1) DEFAULT 0 AFTER tipo_documento,
+    ADD COLUMN referencia_dte_id INT        DEFAULT NULL AFTER folio,
+    ADD COLUMN emitido_por       VARCHAR(100) DEFAULT NULL AFTER respuesta_api;
+
+-- Datos del receptor del DTE manual (para que aparezca en el gestor de facturas
+-- sin necesidad de cruzar con pedidos_activos)
+ALTER TABLE dte_emitidos
+    ADD COLUMN cliente_razon_social VARCHAR(150) DEFAULT NULL AFTER emitido_por,
+    ADD COLUMN cliente_rut          VARCHAR(15)  DEFAULT NULL AFTER cliente_razon_social,
+    ADD COLUMN monto_neto           INT          DEFAULT 0    AFTER cliente_rut;
+
+
 ---------------- Autorización SAG en Mis Vehículos
 -- Tabla simple para guardar las URLs de los 2 documentos SAG (autorización para
 -- transportar mercadería agrícola). Una sola fila con id=1, se va actualizando.
