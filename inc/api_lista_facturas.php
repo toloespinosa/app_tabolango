@@ -33,7 +33,8 @@ try {
             GROUP BY numero_factura";
 
     // ── Fuente 2: DTEs emitidos manualmente (sin pedido asociado) ──
-    // Solo incluimos los que son facturas (33, 46) — guías y NC no van en este listado.
+    // Solo Facturas Afectas (33). Las Facturas de Compra (46) son COMPRAS,
+    // por lo que aparecen en el gestor de Recibidas, no aquí.
     $sql_manuales = "SELECT
                 CONCAT('MAN-', id) as id_pedido,
                 folio as numero_factura,
@@ -47,7 +48,7 @@ try {
                 tipo_documento
             FROM dte_emitidos
             WHERE es_manual = 1
-              AND tipo_documento IN ('33','46')
+              AND tipo_documento = '33'
               AND folio > 0";
 
     $sql = "($sql_pedidos) UNION ALL ($sql_manuales)

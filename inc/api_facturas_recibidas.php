@@ -11,11 +11,42 @@ try {
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
     $filtro = isset($_GET['filtro']) ? $conn->real_escape_string($_GET['filtro']) : '';
 
-    $sql = "SELECT * FROM facturas_recibidas WHERE 1=1 ";
+    // ── Fuente 1: facturas recibidas por correo / API (proveedores que emiten) ──
+    $sql_recibidas = "SELECT
+            id_acuse,
+            folio, fecha_emision, proveedor, rut_proveedor,
+            total_bruto, url_pdf, url_xml, estado_acuse,
+            'recibida' as origen,
+            46 as tipo_documento
+        FROM facturas_recibidas WHERE 1=1 ";
     if (!empty($filtro)) {
-        $sql .= " AND (proveedor LIKE '%$filtro%' OR rut_proveedor LIKE '%$filtro%' OR folio LIKE '%$filtro%') ";
+        $sql_recibidas .= " AND (proveedor LIKE '%$filtro%' OR rut_proveedor LIKE '%$filtro%' OR folio LIKE '%$filtro%') ";
     }
-    $sql .= " ORDER BY fecha_emision DESC LIMIT $limit OFFSET $offset";
+
+    // ── Fuente 2: Facturas de Compra (46) emitidas manualmente por nosotros ──
+    // En una Factura de Compra el RECEPTOR del DTE es en realidad el proveedor
+    // (le compramos a él), por eso se mapea cliente_* → proveedor / rut_proveedor.
+    $sql_compras = "SELECT
+            (id * -1) as id_acuse,                          -- negativo para distinguir
+            folio, DATE(fecha_emision) as fecha_emision,
+            IFNULL(cliente_razon_social, '— Sin proveedor —') as proveedor,
+            IFNULL(cliente_rut, '') as rut_proveedor,
+            ROUND(IFNULL(monto_neto, 0) * 1.19) as total_bruto,
+            url_pdf, url_xml,
+            'PENDIENTE' as estado_acuse,
+            'manual_compra' as origen,
+            tipo_documento
+        FROM dte_emitidos
+        WHERE es_manual = 1
+          AND tipo_documento = '46'
+          AND folio > 0 ";
+    if (!empty($filtro)) {
+        $sql_compras .= " AND (cliente_razon_social LIKE '%$filtro%' OR cliente_rut LIKE '%$filtro%' OR folio LIKE '%$filtro%') ";
+    }
+
+    $sql = "($sql_recibidas) UNION ALL ($sql_compras)
+            ORDER BY fecha_emision DESC
+            LIMIT $limit OFFSET $offset";
     
     $res = $conn->query($sql);
     if (!$res) throw new Exception("Error SQL: " . $conn->error);
@@ -30,20 +61,26 @@ try {
     } else {
         $ruta_public = $ruta_raiz; 
     }
-    $base_xml_dir = rtrim($ruta_public, '/') . '/uploads/recibidos_xml/';
+    $base_xml_dir_recibidas = rtrim($ruta_public, '/') . '/uploads/recibidos_xml/';
+    $base_xml_dir_manuales  = rtrim($ruta_public, '/') . '/uploads/dte_manuales/';
 
     while($row = $res->fetch_assoc()) {
         $row['total_fmt'] = "$" . number_format($row['total_bruto'], 0, ',', '.');
         $row['fecha_fmt'] = date("d/m/Y", strtotime($row['fecha_emision']));
-        
+
         $items_str = "Esperando archivo XML...";
         $archivo_fisico_existe = false;
+
+        // El XML puede estar en distinta carpeta según el origen del registro
+        $base_xml_dir = ($row['origen'] === 'manual_compra')
+            ? $base_xml_dir_manuales
+            : $base_xml_dir_recibidas;
 
         // Verificamos si la URL existe físicamente en el disco duro
         if (!empty($row['url_xml'])) {
             $filename = basename(parse_url($row['url_xml'], PHP_URL_PATH));
             $ruta_fisica = $base_xml_dir . $filename;
-            
+
             if (file_exists($ruta_fisica)) {
                 $archivo_fisico_existe = true;
                 $xml_raw = file_get_contents($ruta_fisica);
@@ -79,10 +116,12 @@ try {
             }
         }
         
-        // 🔥 MAGIA: Si el archivo aún no llega desde el correo, anulamos la URL en la respuesta
+        // Si el archivo no existe físicamente, anulamos la URL en la respuesta
         if (!$archivo_fisico_existe) {
-            $row['url_xml'] = null; // Esto hace que el JS salte la alerta "Documento no disponible"
-            $items_str = "⚠️ Falta sincronizar XML desde el correo.";
+            $row['url_xml'] = null;
+            $items_str = ($row['origen'] === 'manual_compra')
+                ? "⚠️ XML del DTE manual no encontrado en disco."
+                : "⚠️ Falta sincronizar XML desde el correo.";
         }
         
         $row['items_hover'] = htmlspecialchars($items_str, ENT_QUOTES);
