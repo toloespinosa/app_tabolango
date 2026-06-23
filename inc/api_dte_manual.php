@@ -55,6 +55,38 @@ function pathCertificado() {
 }
 
 /**
+ * Helper genérico para calcular ruta física y URL base de cualquier subcarpeta
+ * dentro de /uploads/.  Mismo patrón que el resto del proyecto.
+ */
+function pathsUploadsSubdir($subdir) {
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $raiz = rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/');
+    if (strpos($host, 'erp.tabolango.cl') !== false || strpos($raiz, 'erp.tabolango.cl') !== false) {
+        $public = str_replace('erp.tabolango.cl', 'public_html', $raiz);
+    } else {
+        $public = $raiz;
+    }
+    if ($public === '') $public = dirname(__DIR__, 4);
+
+    $subdir = trim($subdir, '/') . '/';
+    $fisica = rtrim($public, '/') . '/uploads/' . $subdir;
+
+    if (strpos($host, 'tabolango.cl') !== false) {
+        $urlBase = 'https://tabolango.cl/uploads/' . $subdir;
+    } else {
+        $protocolo = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        $script    = dirname($_SERVER['SCRIPT_NAME']);
+        $base_url  = substr($script, 0, strpos($script, 'wp-content'));
+        $urlBase   = $protocolo . '://' . $host . rtrim($base_url, '/') . '/uploads/' . $subdir;
+    }
+
+    if (!is_dir($fisica)) @mkdir($fisica, 0777, true);
+    return ['fisica' => $fisica, 'url' => $urlBase];
+}
+
+function pathsDteReales()     { return pathsUploadsSubdir('dte_manuales'); }
+
+/**
  * Devuelve rutas físicas y URLs públicas de uploads/dte_simulados/.
  * Aquí se escriben los XML y PDF generados en modo local.
  */
@@ -178,16 +210,55 @@ function escribirXmlSimulado($documento, $tipo, $folio, $nombreBase) {
 }
 
 /**
- * Genera un PDF con EL MISMO formato que las facturas de procesar_facturacion.php
- * (logo, recuadro rojo SII, tabla de items, totales), pero con un banner
- * BORRADOR/SIMULACIÓN arriba para dejar claro que no es válido ante el SII.
+ * Extrae el nodo <TED> del XML que devuelve SimpleAPI y lo convierte en
+ * una imagen pdf417 (timbre electrónico). Devuelve el HTML listo para embeber.
+ * Si falla la generación del código de barras, retorna un fallback simple.
  */
-function escribirPdfSimulado($documento, $tipo, $folio, $nombreBase) {
+function extraerTedHtmlDesdeXml($xmlContent) {
+    $xmlObj = @simplexml_load_string($xmlContent);
+    if (!$xmlObj) return '';
+
+    $ted = $xmlObj->xpath('//*[local-name()="TED"]');
+    if (empty($ted)) return '';
+
+    $url = "https://bwipjs-api.metafloor.com/?bcid=pdf417&text="
+         . urlencode($ted[0]->asXML()) . "&rowheight=2&colwidth=3";
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    $img  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($img && $code === 200) {
+        $b64 = base64_encode($img);
+        return "<img src='data:image/png;base64,{$b64}' style='width:100%; max-height:100px;'>"
+             . "<div style='font-size:9px;'>Timbre Electrónico SII<br>Verifique documento: www.sii.cl</div>";
+    }
+    return "<div style='border:1px solid #ccc; padding:10px; font-size:9px; text-align:center;'>[Timbre Electrónico Generado. Verifique en XML]</div>";
+}
+
+/**
+ * Genera un PDF con EL MISMO formato que las facturas de procesar_facturacion.php
+ * (logo, recuadro rojo SII, tabla de items, totales).
+ *
+ * Modo simulado (default): muestra banner amarillo "SIMULACIÓN LOCAL" arriba
+ *                          y reemplaza el TED por un placeholder rojo.
+ * Modo real: agrega el TED real extraído del XML del SII.
+ *
+ * @param array  $opts  ['simulado' => bool, 'ted_html' => string, 'paths' => array|null]
+ */
+function escribirPdfSimulado($documento, $tipo, $folio, $nombreBase, $opts = []) {
+    $simulado  = !empty($opts['simulado']) || empty($opts);
+    $ted_html  = $opts['ted_html'] ?? '';
+    $paths     = $opts['paths']    ?? null;
     $autoload = dirname(__DIR__) . '/vendor/autoload.php';
     if (!file_exists($autoload)) return null;
     require_once $autoload;
 
-    $paths = pathsDteSimulados();
+    if ($paths === null) $paths = pathsDteSimulados();
     if (!is_dir($paths['fisica'])) @mkdir($paths['fisica'], 0777, true);
 
     // Mapeo tipo → nombre (igual que en el procesador real)
@@ -275,10 +346,17 @@ function escribirPdfSimulado($documento, $tipo, $folio, $nombreBase) {
         }
     }
 
-    // Caja TED reemplazada por advertencia de borrador (igual que el modo simulación del procesador)
-    $html_ted_code = '<div style="border:2px solid red; padding:10px; color:red; font-weight:bold; text-align:center;">'
-                   . 'DOCUMENTO BORRADOR<br>SIMULACIÓN LOCAL — NO VÁLIDO ANTE EL SII'
-                   . '</div>';
+    // TED: si vino del XML real, lo usamos; si no, advertencia de borrador
+    if (!empty($ted_html)) {
+        $html_ted_code = $ted_html;
+    } else {
+        $html_ted_code = '<div style="border:2px solid red; padding:10px; color:red; font-weight:bold; text-align:center;">'
+                       . 'DOCUMENTO BORRADOR<br>SIMULACIÓN LOCAL — NO VÁLIDO ANTE EL SII'
+                       . '</div>';
+    }
+    $banner_html = $simulado
+        ? '<div class="banner-sim">🧪 SIMULACIÓN LOCAL — NO VÁLIDO ANTE EL SII (sin firma electrónica ni timbre CAF)</div>'
+        : '';
 
     $neto_fmt  = number_format((int)($tot['MontoNeto']  ?? 0), 0, ',', '.');
     $iva_fmt   = number_format((int)($tot['IVA']        ?? 0), 0, ',', '.');
@@ -316,7 +394,7 @@ function escribirPdfSimulado($documento, $tipo, $folio, $nombreBase) {
           . '.grand-total{border-top:2px solid #000;font-weight:bold;font-size:14px;padding-top:8px !important;}'
           . '.banner-sim{background:#fff8e1;border:2px dashed #ffb300;padding:6px 10px;text-align:center;color:#b26a00;font-weight:bold;font-size:11px;border-radius:6px;margin-bottom:14px;}'
           . '</style></head><body>'
-          . '<div class="banner-sim">🧪 SIMULACIÓN LOCAL — NO VÁLIDO ANTE EL SII (sin firma electrónica ni timbre CAF)</div>'
+          . $banner_html
           . '<div class="header">'
           .   '<div class="col-left">'
           .     '<img src="' . $logo_b64 . '" class="logo-img"><br>'
@@ -691,31 +769,45 @@ if ($action === 'generar_dte') {
         fail("Respuesta vacía de SimpleAPI ($err_msg)", 500);
     }
 
-    $data = json_decode($resp, true);
-    if ($data === null) {
-        fail("Respuesta inválida de SimpleAPI (HTTP $http_code): " . substr($resp, 0, 400));
-    }
-
-    $url_pdf = $data['urlPdf'] ?? $data['url_pdf'] ?? $data['UrlPdf'] ?? null;
-    $url_xml = $data['urlXml'] ?? $data['url_xml'] ?? $data['UrlXml'] ?? null;
-    $ok_api  = !empty($data['ok']) || !empty($data['Ok']) || !empty($url_xml) || !empty($url_pdf);
-
-    if (!$ok_api && isset($data['msg'])) {
-        $err = is_string($data['msg']) ? $data['msg'] : json_encode($data['msg']);
+    // SimpleAPI devuelve XML directo cuando funciona; JSON con mensaje cuando falla.
+    if (strpos($resp, '<?xml') === false) {
+        $jsonErr   = json_decode($resp, true);
+        $err_msg   = is_array($jsonErr)
+            ? ($jsonErr['message'] ?? $jsonErr['msg'] ?? json_encode($jsonErr))
+            : trim(strip_tags($resp));
         $stmt = $conn->prepare("INSERT INTO dte_emitidos
             (id_pedido, tipo_documento, es_manual, folio, estado_envio, respuesta_api, emitido_por)
             VALUES (NULL, ?, 1, ?, 'ERROR', ?, ?)");
-        $stmt->bind_param("siss", $tipo_dte, $folio_manual, $err, $email_auth);
+        $stmt->bind_param("siss", $tipo_dte, $folio_manual, $err_msg, $email_auth);
         $stmt->execute();
-        fail("SimpleAPI rechazó: $err");
+        fail("SimpleAPI rechazó (HTTP $http_code): " . substr($err_msg, 0, 400));
     }
+
+    // Respuesta exitosa: el contenido es el XML del DTE firmado.
+    // Lo guardamos y generamos el PDF localmente usando el mismo template
+    // que las facturas automáticas, embebiendo el TED real.
+    $paths_reales = pathsDteReales();
+    $nombreBase   = 'dte_' . $tipo_dte . '_' . $folio_manual . '_' . time();
+
+    // Guarda XML real
+    $xmlFilename = $nombreBase . '.xml';
+    file_put_contents($paths_reales['fisica'] . $xmlFilename, $resp);
+    $url_xml = $paths_reales['url'] . $xmlFilename;
+
+    // Extrae TED y genera PDF
+    $ted_html = extraerTedHtmlDesdeXml($resp);
+    $url_pdf  = escribirPdfSimulado($documento, $tipo_dte, $folio_manual, $nombreBase, [
+        'simulado' => false,
+        'ted_html' => $ted_html,
+        'paths'    => $paths_reales,
+    ]);
 
     $stmt = $conn->prepare("INSERT INTO dte_emitidos
         (id_pedido, tipo_documento, es_manual, folio, referencia_dte_id,
          url_xml, url_pdf, estado_envio, respuesta_api, emitido_por,
          cliente_razon_social, cliente_rut, monto_neto)
         VALUES (NULL, ?, 1, ?, ?, ?, ?, 'PENDIENTE_SII', ?, ?, ?, ?, ?)");
-    $resp_short = substr($resp, 0, 1000);
+    $resp_short = 'Generado OK | XML guardado en ' . $url_xml;
     $stmt->bind_param("siissssssi",
         $tipo_dte, $folio_manual, $referencia_id,
         $url_xml, $url_pdf, $resp_short, $email_auth,
