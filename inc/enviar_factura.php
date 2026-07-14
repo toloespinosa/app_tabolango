@@ -94,21 +94,31 @@ try {
     }
 
     // 2. PREPARACIÓN DE VARIABLES
-    $nombreArchivo = basename($urlRecibida);
-    $urlFinal = $urlRecibida . "?v=" . time(); // Anti-caché
-    $variableSaludo = !empty(trim($nombreSaludo)) ? "" . trim($nombreSaludo) : "";
+    // Twilio rechaza el envío si CUALQUIER content variable llega vacía o como null.
+    // Ponemos un fallback no-vacío para cada slot.
+    $nombreArchivo  = basename($urlRecibida);
+    $urlFinal       = $urlRecibida . "?v=" . time(); // Anti-caché
+
+    $variableSaludo = trim($nombreSaludo);
+    if ($variableSaludo === '') $variableSaludo = 'Estimado/a';
+
+    $variableFolio  = trim((string)$folioPost);
+    if ($variableFolio === '' || $variableFolio === '0') $variableFolio = 'S/N';
+
+    $variableArchivo = trim($nombreArchivo);
+    if ($variableArchivo === '') $variableArchivo = 'documento.pdf';
 
     // 3. ENVÍO A TWILIO (SOLO EN PRODUCCIÓN)
     if (!$es_entorno_local) {
         $message = $twilio->messages->create("whatsapp:" . $telefonoFactura, [
-            "from" => "whatsapp:+12178583230",
-            "contentSid" => $templateSid, 
+            "from"             => "whatsapp:+12178583230",
+            "contentSid"       => $templateSid,
             "contentVariables" => json_encode([
-                "1" => (string)$variableSaludo, 
-                "2" => (string)$folioPost,
-                "3" => (string)$nombreArchivo 
-            ]),
-            "mediaUrl" => [$urlFinal]
+                "1" => $variableSaludo,
+                "2" => $variableFolio,
+                "3" => $variableArchivo,
+            ], JSON_UNESCAPED_UNICODE),
+            "mediaUrl"         => [$urlFinal],
         ]);
     }
 
