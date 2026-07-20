@@ -109,16 +109,30 @@ try {
             'files' => new CURLFile($path_certificado, 'application/x-pkcs12', 'certificado.pfx'),
         ];
 
-        $ch = curl_init("https://api.simpleapi.cl/api/v1/dte/estado");
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: " . $API_KEY]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        $resp     = curl_exec($ch);
-        $err      = curl_error($ch);
-        $http     = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // SimpleAPI ha cambiado su URL para consulta de estado en el tiempo.
+        // Probamos varias candidatas y usamos la primera que responda distinto de 404.
+        $urls_candidatas = [
+            'https://api.simpleapi.cl/api/v1/envio/getEstado',
+            'https://api.simpleapi.cl/api/v1/dte/getEstadoEnvio',
+            'https://api.simpleapi.cl/api/v1/envio/estado',
+            'https://api.simpleapi.cl/api/v1/dte/estado',
+        ];
+        $resp = null; $err = ''; $http = 0; $url_usada = '';
+        foreach ($urls_candidatas as $url_try) {
+            $ch = curl_init($url_try);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: " . $API_KEY]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $resp = curl_exec($ch);
+            $err  = curl_error($ch);
+            $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $url_usada = $url_try;
+            // Si NO es 404 (endpoint existe) usamos esta respuesta
+            if ($http !== 404) break;
+        }
 
         // Parsear respuesta (JSON o XML según SimpleAPI)
         $data = json_decode($resp, true);
@@ -149,7 +163,7 @@ try {
         // Guardamos el estado y la glosa en la BD
         $log = "Verificado " . date('Y-m-d H:i')
              . " | SII: " . ($codigo ?: '?') . " (" . $nombre . ")"
-             . " | HTTP=$http"
+             . " | HTTP=$http | URL=" . basename($url_usada)
              . ($err ? " | curl_err=$err" : "");
         $stmt2 = $conn->prepare("UPDATE dte_emitidos
                                     SET estado_envio  = ?,
@@ -170,6 +184,8 @@ try {
             'estado_nuevo_db'    => $nuevo,
             'aceptado'           => $ok,
             'http_code'          => $http,
+            'endpoint'           => $url_usada,
+            'raw_snippet'        => substr((string)$resp, 0, 300),
         ];
     }
 
