@@ -42,6 +42,25 @@ if (!$autoload_encontrado) {
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
+/**
+ * Formatea un RUT chileno al formato "12345678-K" requerido por el schema del SII.
+ * Acepta cualquier variación ("77.121.854-7", "771218547", "77121854-7", etc.)
+ * y siempre devuelve NNNNNNNN-K (sin puntos, con guion, DV en mayúscula).
+ * Si la entrada es inválida, retorna la original limpia para que el error del SII
+ * sea más explícito.
+ */
+function formatearRutSii($rut) {
+    if (empty($rut)) return '';
+    // Quita todo lo que no sea dígito o K/k
+    $limpio = strtoupper(preg_replace('/[^0-9K]/', '', (string)$rut));
+    if (strlen($limpio) < 2) return $limpio;
+    $dv     = substr($limpio, -1);
+    $cuerpo = substr($limpio, 0, -1);
+    // Si el cuerpo tiene una K (imposible), abortamos y devolvemos lo original
+    if (strpos($cuerpo, 'K') !== false) return $limpio;
+    return $cuerpo . '-' . $dv;
+}
+
 function cleanStr($str) {
     if (!$str) return "";
     $str = mb_convert_encoding($str, 'UTF-8', 'auto');
@@ -175,10 +194,13 @@ try {
                 $final_direccion = $dir_normal; $final_comuna = $com_normal; $final_ciudad = $ciudad_defecto;
             }
 
-            $rut_cliente_limpio = str_replace('.', '', $row['rut_cliente']);
+            // El SII exige RUT en formato "12345678-K" (sin puntos, CON guion
+            // antes del dígito verificador). Un RUT sin guion tira
+            // "Rechazado por Error en Schema".
+            $rut_cliente_limpio = formatearRutSii($row['rut_cliente']);
 
             $cliente = [
-                "Rut" => $rut_cliente_limpio, 
+                "Rut" => $rut_cliente_limpio,
                 "RazonSocial" => cleanStr($row['razon_social']), 
                 "Giro" => cleanStr($row['giro'] ?: "PARTICULAR"), 
                 "Direccion" => cleanStr($final_direccion), 

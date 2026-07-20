@@ -109,19 +109,31 @@ try {
             'files' => new CURLFile($path_certificado, 'application/x-pkcs12', 'certificado.pfx'),
         ];
 
-        // SimpleAPI ha cambiado su URL para consulta de estado en el tiempo.
-        // Probamos varias candidatas y usamos la primera que responda distinto de 404.
+        // SimpleAPI expone dos dominios: api.simpleapi.cl y servicios.simpleapi.cl.
+        // No hay documentación única del endpoint de estado, así que probamos:
+        //  - POST con multipart (con certificado) — como los otros endpoints
+        //  - GET con el trackId en la URL — patrón de servicios.simpleapi.cl
+        // Nos quedamos con la primera respuesta que no sea 404.
         $urls_candidatas = [
-            'https://api.simpleapi.cl/api/v1/envio/getEstado',
-            'https://api.simpleapi.cl/api/v1/dte/getEstadoEnvio',
-            'https://api.simpleapi.cl/api/v1/envio/estado',
-            'https://api.simpleapi.cl/api/v1/dte/estado',
+            // POST con multipart (mismo patrón que envio/generar):
+            ['POST', 'https://api.simpleapi.cl/api/v1/envio/getEstado'],
+            ['POST', 'https://api.simpleapi.cl/api/v1/envio/estado'],
+            ['POST', 'https://api.simpleapi.cl/api/v1/dte/getEstadoEnvio'],
+            ['POST', 'https://api.simpleapi.cl/api/v1/dte/estado'],
+            ['POST', 'https://servicios.simpleapi.cl/api/envio/estado'],
+            ['POST', 'https://servicios.simpleapi.cl/api/dte/estado'],
+            // GET con trackId en la URL (patrón de folios/get/{tipo}):
+            ['GET',  'https://servicios.simpleapi.cl/api/envio/estado/' . $track . '/' . $RUT_EMISOR_CLEAN],
+            ['GET',  'https://servicios.simpleapi.cl/api/dte/estado/'   . $track . '/' . $RUT_EMISOR_CLEAN],
+            ['GET',  'https://servicios.simpleapi.cl/api/estado/get/'   . $track . '/' . $RUT_EMISOR_CLEAN],
         ];
-        $resp = null; $err = ''; $http = 0; $url_usada = '';
-        foreach ($urls_candidatas as $url_try) {
+        $resp = null; $err = ''; $http = 0; $url_usada = ''; $metodo_usado = '';
+        foreach ($urls_candidatas as [$metodo, $url_try]) {
             $ch = curl_init($url_try);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            if ($metodo === 'POST') {
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            }
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Authorization: " . $API_KEY]);
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
@@ -129,9 +141,10 @@ try {
             $err  = curl_error($ch);
             $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
-            $url_usada = $url_try;
+            $url_usada    = $url_try;
+            $metodo_usado = $metodo;
             // Si NO es 404 (endpoint existe) usamos esta respuesta
-            if ($http !== 404) break;
+            if ($http !== 404 && $http !== 0) break;
         }
 
         // Parsear respuesta (JSON o XML según SimpleAPI)
@@ -185,6 +198,7 @@ try {
             'aceptado'           => $ok,
             'http_code'          => $http,
             'endpoint'           => $url_usada,
+            'metodo'             => $metodo_usado,
             'raw_snippet'        => substr((string)$resp, 0, 300),
         ];
     }

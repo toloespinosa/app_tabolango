@@ -120,15 +120,58 @@ try {
     ];
     $post_sobre = ['input' => json_encode($json_sobre), 'files' => new CURLFile($path_certificado, 'application/x-pkcs12', 'certificado.pfx')];
 
-    $file_index = 2;
-    $ids_a_actualizar = [];
+    $file_index         = 2;
+    $ids_a_actualizar   = [];
     $resumen_documentos = [];
+    $rechazados_pre    = []; // XMLs con problema de schema — los sacamos del lote
+
+    // Pattern del schema SII para cualquier RUT: 1-8 dígitos + guion + DV (0-9 o K)
+    $rut_ok_regex = '/^\d{1,8}-[0-9K]$/i';
 
     foreach ($pendientes as $doc) {
+        $xml_raw = @file_get_contents($doc['ruta_fisica']);
+        // Todos los RUTs presentes en el XML (RUTEmisor, RUTRecep, RUTMandante, etc.)
+        preg_match_all('/<(?:[A-Za-z]+:)?RUT[A-Za-z]*>([^<]+)<\//', $xml_raw, $matches);
+        $ruts_encontrados = array_map('trim', $matches[1] ?? []);
+
+        $ruts_malos = [];
+        foreach ($ruts_encontrados as $r) {
+            if (!preg_match($rut_ok_regex, $r)) $ruts_malos[] = $r;
+        }
+
+        if (!empty($ruts_malos)) {
+            // Sacamos este DTE del lote — si va, hace fallar el sobre entero
+            $err = "XML tiene RUT malformado (schema SII): [" . implode(', ', array_unique($ruts_malos))
+                 . "]. Regenerar la factura con el RUT del cliente corregido.";
+            $stmt_err = $conn->prepare("UPDATE dte_emitidos
+                                           SET estado_envio  = 'ERROR_SCHEMA',
+                                               respuesta_api = ?
+                                         WHERE id = ?");
+            $stmt_err->bind_param("si", $err, $doc['id']);
+            $stmt_err->execute();
+            $stmt_err->close();
+            $rechazados_pre[] = [
+                'id' => $doc['id'], 'folio' => $doc['folio'],
+                'ruts_malformados' => array_values(array_unique($ruts_malos)),
+            ];
+            continue;
+        }
+
+        // XML válido → al lote
         $post_sobre['files' . $file_index] = new CURLFile($doc['ruta_fisica'], 'text/xml', basename($doc['ruta_fisica']));
-        $ids_a_actualizar[] = $doc['id'];
+        $ids_a_actualizar[]   = $doc['id'];
         $resumen_documentos[] = "DTE " . $doc['tipo_documento'] . " | Folio: " . $doc['folio'];
         $file_index++;
+    }
+
+    if (empty($ids_a_actualizar)) {
+        // Ninguno pasó la validación — no tiene sentido llamar al SII
+        echo json_encode([
+            "status"           => "error",
+            "message"          => "Ningún DTE pasó la validación de schema. Todos tienen RUT malformado.",
+            "rechazados_pre"   => $rechazados_pre,
+        ]);
+        exit;
     }
 
     // ENSOBRAR
@@ -199,12 +242,13 @@ try {
     }
 
     echo json_encode([
-        "status" => "success",
-        "message" => "¡Lote enviado al SII!",
-        "track_id" => $track_id,
-        "cantidad_documentos" => count($pendientes),
-        "enviados_duemint" => $correos_enviados,
-        "detalle" => $resumen_documentos
+        "status"              => "success",
+        "message"             => "¡Lote enviado al SII!",
+        "track_id"            => $track_id,
+        "cantidad_documentos" => count($ids_a_actualizar),
+        "enviados_duemint"    => $correos_enviados,
+        "detalle"             => $resumen_documentos,
+        "rechazados_pre_envio"=> $rechazados_pre, // los que no se enviaron por RUT malformado
     ]);
 
 } catch (Exception $e) {

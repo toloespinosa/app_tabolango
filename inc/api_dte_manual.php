@@ -474,6 +474,20 @@ function buscarCafParaFolio($tipo_dte, $folio) {
     return null;
 }
 
+/**
+ * Formatea un RUT al formato exigido por el schema del SII: "NNNNNNNN-K".
+ * Acepta variantes con/sin puntos, con/sin guion, mayúscula/minúscula.
+ */
+function formatearRutSii($rut) {
+    if (empty($rut)) return '';
+    $limpio = strtoupper(preg_replace('/[^0-9K]/', '', (string)$rut));
+    if (strlen($limpio) < 2) return $limpio;
+    $dv     = substr($limpio, -1);
+    $cuerpo = substr($limpio, 0, -1);
+    if (strpos($cuerpo, 'K') !== false) return $limpio;
+    return $cuerpo . '-' . $dv;
+}
+
 // Limpia caracteres acentuados para evitar problemas con SimpleAPI / SII
 function cleanStr($txt) {
     $txt = preg_replace('/[áÁ]/u', 'a', $txt);
@@ -631,7 +645,7 @@ if ($action === 'generar_dte') {
             "Telefono"            => [],
         ],
         "Receptor" => [
-            "Rut"             => cleanStr($receptor['rut']),
+            "Rut"             => formatearRutSii($receptor['rut']),
             "RazonSocial"     => cleanStr($receptor['razon_social']),
             "Giro"            => cleanStr($receptor['giro'] ?? 'PARTICULAR'),
             "DireccionRecep"  => cleanStr($receptor['direccion'] ?? '-'),
