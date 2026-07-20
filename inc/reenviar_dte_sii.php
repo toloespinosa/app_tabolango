@@ -6,7 +6,7 @@
 //
 // Uso:
 //   https://erp.tabolango.cl/wp-content/themes/app_tabolango/inc/reenviar_dte_sii.php?id=123
-//   https://erp.tabolango.cl/wp-content/themes/app_tabolango/inc/reenviar_dte_sii.php?folio=4521&tipo=33
+//   https://erp.tabolango.cl/wp-content/themes/app_tabolango/inc/reenviar_dte_sii.php?folio=4521&tipo=33&wp_user=jandres@tabolango.cl
 // ============================================================
 require_once 'auth.php';
 
